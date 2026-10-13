@@ -40,6 +40,26 @@ function secretState(result) {
   return count === SECRET_NAMES.length ? 'reuse' : 'create';
 }
 
+/** Check the public runtime without sending the Build token or creating an account. */
+export async function verifySessionRuntime(origin, request = fetch, wait = ms => new Promise(resolve => setTimeout(resolve, ms))) {
+  let status;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    try {
+      const response = await request(`${origin}/api/auth/me`, {
+        method: 'GET', headers: { Accept: 'application/json' }, cache: 'no-store',
+        credentials: 'omit', redirect: 'error', signal: AbortSignal.timeout(10_000),
+      });
+      status = response.status;
+      const body = await response.json();
+      if (status === 401 && body?.error === '로그인이 필요합니다.') return;
+    } catch { status = undefined; }
+    if (attempt < 5) await wait(2_000);
+  }
+  throw new DashboardDeployError(status === 503
+    ? 'Public runtime verification failed (HTTP 503): SESSION_SECRET may be missing or shorter than 32 bytes in the active Worker. Secret names alone do not prove valid values. Existing keys were preserved.'
+    : `Public runtime verification failed (${status === undefined ? 'network or invalid response' : `HTTP ${status}`}). The Worker was uploaded but application readiness was not verified. Existing keys were preserved.`);
+}
+
 /** Dashboard Git Builds only: the injected CI tag ties all writes to the selected Worker. */
 export async function deployDashboard(options = {}) {
   const cwd = options.cwd ?? process.cwd();
@@ -115,6 +135,7 @@ export async function deployDashboard(options = {}) {
     const assets = settings.bindings.filter(binding => binding.type === 'assets');
     if (assets.length > 1 || assets.some(binding => binding.name !== (source.assets.binding ?? 'ASSETS'))) throw new DashboardDeployError('Existing asset bindings do not match the application. No remote resources were changed.');
     const mode = secretState(await cli(['secret', 'list', '--name', name, '--format', 'json'], 'Secret name lookup', true));
+    log(`Application secret setup: ${mode === 'reuse' ? 'preserving existing values' : 'initializing after empty-database verification'}.`);
     if (mode === 'create') {
       const marker = settings.bindings.find(binding => binding.name === 'SALARY_GUARDIANS_APP');
       const legacyKeys = settings.bindings.some(binding => SECRET_NAMES.includes(binding.name));
@@ -176,7 +197,9 @@ export async function deployDashboard(options = {}) {
     }
     if (secretState(await cli(['secret', 'list', '--name', name, '--format', 'json'], 'Final secret verification', true)) !== 'reuse') throw new DashboardDeployError('The application secrets changed during deployment. Restore the original keys; new keys were not generated.');
     await cli(['deploy', '--name', name, '--keep-vars'], 'Worker deployment');
+    await verifySessionRuntime(origin, request, options.wait);
     log('Dashboard deployment completed: D1 migrations applied and all five application secrets preserved or securely initialized.');
+    log('Public session configuration verified. Account creation and real iPhone push delivery still require functional testing.');
     log(`Open ${origin} in Safari, add it to the Home Screen, then enable notifications and test real iPhone delivery.`);
     return { workerName: name, secrets: mode, origin };
   } finally { await rm(directory, { recursive: true, force: true }); }

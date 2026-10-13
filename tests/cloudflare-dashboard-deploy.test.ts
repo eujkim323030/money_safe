@@ -11,12 +11,13 @@ const config = { name: 'salary-guardians', main: 'cloudflare/index.ts', assets: 
 const env = { CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: 'TOKEN-CANARY-NOT-FOR-LOGS', WRANGLER_CI_MATCH_TAG: 'linked-tag', WRANGLER_CI_OVERRIDE_NAME: 'money-safe' };
 const appTables = ['users', 'sessions', 'states', 'rate_limits', 'push_subscriptions', 'push_events', 'push_deliveries', 'd1_migrations'];
 interface RunOptions { cwd: string; environment: Record<string, string> }
-interface Setup { names?: string[]; binding?: boolean; existingDb?: boolean; tag?: string; fail?: string; tables?: string[]; stale?: boolean; occupied?: number; plainKeys?: boolean; origin?: string; assets?: boolean; marker?: boolean }
+interface Setup { names?: string[]; binding?: boolean; existingDb?: boolean; tag?: string; fail?: string; tables?: string[]; stale?: boolean; occupied?: number; plainKeys?: boolean; origin?: string; assets?: boolean; marker?: boolean; runtimeStatuses?: number[] }
 async function fixture(context: TestContext, setup: Setup = {}) {
   const cwd = await mkdtemp(join(tmpdir(), 'salary-dashboard-test-')); context.after(() => rm(cwd, { recursive: true, force: true }));
   let names = setup.names ?? [...SECRET_NAMES];
   const calls: string[][] = [], messages: string[] = [], secrets: Record<string, string>[] = [];
   let secretFile = '';
+  let runtimeAttempts = 0;
   const run = async (args: string[], options: RunOptions) => {
     calls.push(args); assert.equal(options.environment.CI, 'true'); assert.equal(options.environment.WRANGLER_WRITE_LOGS, 'false');
     const file = args[args.indexOf('--config') + 1];
@@ -44,6 +45,14 @@ async function fixture(context: TestContext, setup: Setup = {}) {
     return { code: 0, stdout: JSON.stringify(value), stderr: '' };
   };
   const request = async (url: string, init: RequestInit) => {
+    if (url === 'https://money-safe.real-account.workers.dev/api/auth/me') {
+      assert.ok(calls.some(args => args[0] === 'deploy'));
+      assert.equal((init.headers as Record<string, string>).Authorization, undefined);
+      assert.equal(init.credentials, 'omit'); assert.equal(init.redirect, 'error');
+      const statuses = setup.runtimeStatuses ?? [401];
+      const status = statuses[Math.min(runtimeAttempts++, statuses.length - 1)];
+      return Response.json({ error: status === 401 ? '로그인이 필요합니다.' : 'PRIVATE-OUTPUT-CANARY' }, { status });
+    }
     assert.ok(url.startsWith(`https://api.cloudflare.com/client/v4/accounts/${account}/`));
     assert.equal((init.headers as Record<string, string>).Authorization, `Bearer ${env.CLOUDFLARE_API_TOKEN}`);
     const bindings: Record<string, string>[] = setup.binding ? [{ type: 'd1', name: 'DB', id: dbId }] : [];
@@ -56,9 +65,26 @@ async function fixture(context: TestContext, setup: Setup = {}) {
       : { default_environment: { script: { tag: setup.tag ?? 'linked-tag', created_on: '2026-10-13T00:00:00Z', modified_on: setup.stale ? '2026-10-14T00:00:00Z' : '2026-10-13T00:00:00Z' } } };
     return Response.json({ success: true, result });
   };
-  const options = { cwd, environment: env, config, run, request, log: (message: string) => messages.push(message) };
-  return { cwd, options, calls, messages, secrets, secretFile: () => secretFile };
+  const options = { cwd, environment: env, config, run, request, wait: async () => {}, log: (message: string) => messages.push(message) };
+  return { cwd, options, calls, messages, secrets, secretFile: () => secretFile, runtimeAttempts: () => runtimeAttempts };
 }
+
+test('existing secret names cannot produce deployment success when the active runtime rejects them', async context => {
+  const f = await fixture(context, { binding: true, runtimeStatuses: [503] });
+  await assert.rejects(deployDashboard(f.options), /SESSION_SECRET may be missing or shorter than 32 bytes/);
+  assert.equal(f.runtimeAttempts(), 6);
+  assert.equal(f.secrets.length, 0);
+  assert.ok(!f.messages.some(message => message.includes('Dashboard deployment completed')));
+  assert.ok(!f.messages.join('\n').includes('CANARY'));
+  assert.deepEqual(await readdir(f.cwd), []);
+});
+
+test('public session verification allows bounded propagation without rotating secrets', async context => {
+  const f = await fixture(context, { binding: true, runtimeStatuses: [503, 503, 401] });
+  await deployDashboard(f.options);
+  assert.equal(f.runtimeAttempts(), 3); assert.equal(f.secrets.length, 0);
+  assert.ok(f.messages.some(message => message.includes('Public session configuration verified')));
+});
 
 test('dashboard deployment requires injected Build identity before any side effects', async context => {
   const f = await fixture(context);

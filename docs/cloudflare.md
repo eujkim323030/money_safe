@@ -8,13 +8,13 @@
 
 월급수비대는 **Workers + D1 + Cron**의 무료 범위를 사용합니다. Cloudflare가 GitHub 소스를 가져와 자체 빌드 서버에서 배포하며 개인용 `workers.dev` HTTPS 주소를 제공합니다. 서버 비밀키와 DB 설정은 자동 배포 helper가 처리합니다. 사용자는 API 토큰·OAuth 토큰·비밀번호·앱 비밀키를 채팅에 전달하지 않습니다.
 
-실행 코드는 [eujkim323030/money_safe](https://github.com/eujkim323030/money_safe)의 `main` 브랜치에 업로드했습니다. 실제 앱 주소는 **[https://money-safe.ttlikim16.workers.dev](https://money-safe.ttlikim16.workers.dev)**이며 사용자가 홈 화면 설치 후 로그인 화면을 확인했습니다. 회원가입에는 **`서버 세션 비밀키 설정이 필요합니다.`** 오류가 발생했습니다. 화면 배포는 확인됐지만 서버 초기 설정·가입·실제 iPhone 푸시 수신은 완료되지 않았습니다.
+실행 코드는 [eujkim323030/money_safe](https://github.com/eujkim323030/money_safe)의 `main` 브랜치에 업로드했습니다. 실제 앱 주소는 **[https://money-safe.ttlikim16.workers.dev](https://money-safe.ttlikim16.workers.dev)**이며 사용자가 홈 화면 설치 후 로그인 화면을 확인했습니다. 회원가입에는 **`서버 세션 비밀키 설정이 필요합니다.`** 오류가 발생했습니다. 이후 사용자가 초기화 완료 로그와 공개 `/api/auth/me`의 `로그인이 필요합니다.` 응답을 확인했습니다. 현재 세션 키 검사는 통과하며 가입·실제 iPhone 푸시 수신은 재검증 중입니다.
 
 ## 현재 회원가입 오류 복구
 
-확인된 오류는 서버의 `SESSION_SECRET` 설정이 없다는 뜻입니다. 현재 앱 `money-safe`의 **Settings → Build → Build Configuration**에서 위의 빌드·배포 명령을 저장하고 최신 복구 코드가 반영된 `main` 빌드를 재시도합니다. [공식 Build 설정](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#build-settings)에 따르면 저장된 변경은 다음 빌드에 적용되며, Retry도 재시도 시점의 설정을 사용합니다.
+확인된 오류는 서버의 `SESSION_SECRET` 설정이 없거나 32바이트보다 짧다는 뜻입니다. 현재 앱 `money-safe`의 **Settings → Build → Build Configuration**에서 위의 빌드·배포 명령을 저장하고 최신 복구 코드가 반영된 `main` 빌드를 재시도합니다. [공식 Build 설정](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#build-settings)에 따르면 저장된 변경은 다음 빌드에 적용되며, Retry도 재시도 시점의 설정을 사용합니다.
 
-복구 helper는 현재 Worker와 연결된 기존 D1을 먼저 확인합니다. 서버 초기 설정 완료 기록이 없는 첫 설치이고 서버 비밀 5개가 모두 없으며 DB가 비어 있다는 검증을 통과한 경우에만 migrations와 새 비밀 초기화를 진행합니다. 기존 계정·기록·구독·초기 설정 완료 기록이 있거나 비밀 일부만 없어졌다면 원래 키 복구를 요구하고 중단합니다. 비밀값을 로그나 채팅에 출력하지 않습니다. 이 복구의 실제 원격 성공은 아직 확인되지 않았습니다.
+복구 helper는 현재 Worker와 연결된 기존 D1을 먼저 확인합니다. 서버 초기 설정 완료 기록이 없는 첫 설치이고 서버 비밀 5개가 모두 없으며 DB가 비어 있다는 검증을 통과한 경우에만 migrations와 새 비밀 초기화를 진행합니다. 기존 계정·기록·구독·초기 설정 완료 기록이 있거나 비밀 일부만 없어졌다면 원래 키 복구를 요구하고 중단합니다. 비밀값을 로그나 채팅에 출력하지 않습니다. 사용자가 초기화 완료 로그와 공개 로그인 API 응답을 확인했습니다. 새 helper는 배포 후 인증정보 없이 `/api/auth/me`를 조회하여 예상한 401 JSON 응답을 확인해야 완료 로그를 출력합니다. 최대 여섯 번의 제한된 재시도 후에도 실패하면 빌드를 실패 처리하며 기존 비밀값을 바꾸지 않습니다. 이 검사는 가입·DB 저장·실기기 푸시 검증을 대신하지 않습니다.
 
 재시도에서 D1 권한 오류가 나타난 경우에는 아래의 **D1 Edit** 권한 조정을 적용합니다. 완료 후 실제 앱에서 가입·로그인·저장과 CPU 한도를 검증하고, 마지막으로 iPhone 푸시를 확인합니다. 비밀번호나 API 토큰은 채팅에 보내지 않습니다.
 

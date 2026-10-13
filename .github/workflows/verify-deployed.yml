@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/verify-deployed.yml'
       - 'scripts/smoke-public-app.mjs'
+      - 'scripts/cloudflare-dashboard-deploy.mjs'
       - 'cloudflare/**'
       - 'shared/**'
       - 'src/**'
