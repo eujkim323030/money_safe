@@ -1,6 +1,6 @@
 # 무료 Cloudflare 배포
 
-1. 로그인한 [Cloudflare 대시보드](https://dash.cloudflare.com/)의 **Workers & Pages → Create application**을 누릅니다.
+1. 로그인한 [Cloudflare Workers & Pages](https://dash.cloudflare.com/?to=/:account/workers-and-pages)를 열고 **Create application**을 눌러 새 앱을 만듭니다.
 2. **Import a repository** 옆 **Get started**에서 GitHub를 연결하고, 코드 업로드가 완료된 `money_safe`를 선택합니다.
 3. 아래 표의 앱 이름·빌드·배포 명령을 확인하고 **Save and Deploy**를 누릅니다.
 4. D1 권한 오류가 나오면 기존 빌드 토큰에 해당 계정의 **D1 Edit**를 추가하고 빌드를 재시도합니다.
@@ -26,7 +26,7 @@
 
 `.node-version`에 Node 24를 지정했으므로 사용자에게 Node 버전 값을 따로 입력하도록 요구하지 않습니다. 공식 빌드 이미지는 현재 Node 24.18.0을 기본으로 제공하며 `.node-version`과 `.nvmrc`를 읽어 버전을 선택합니다.
 
-자동 배포 helper는 D1 DB를 생성하거나 재사용하고 migrations를 적용하며, 서버 비밀이 모두 없는 최초 설치에서 필요한 키를 생성합니다. 이후 배포에서는 기존 키를 유지합니다. VAPID 쌍이나 암호화키·세션 비밀이 부분적으로 없어져 정합성을 확인할 수 없으면 작업을 중단합니다. 빌드 로그에 키 값을 출력하지 않습니다. 실제 빌드·배포 성공과 원격 검증을 확인하기 전에는 자동 설정이 완료됐다고 표시하지 않습니다.
+자동 배포 helper는 CI에 연결된 앱의 이름·태그·계정을 확인하고 해당 앱의 D1 DB를 생성하거나 재사용하여 migrations를 적용합니다. 서버 비밀과 기존 데이터가 없는 최초 설치에서 필요한 키를 생성하며, 이후 배포에서는 기존 키를 유지합니다. VAPID 쌍이나 암호화키·세션 비밀이 부분적으로 없거나 기존 데이터에 필요한 키가 사라졌다면 작업을 중단합니다. 빌드 로그에 키 값을 출력하지 않습니다. 최초 설정은 하나의 빌드로 진행하며, 실제 빌드·배포 성공과 원격 검증을 확인하기 전에는 자동 설정이 완료됐다고 표시하지 않습니다.
 
 ### D1 권한을 한 번 추가해야 하는 경우
 
@@ -42,7 +42,7 @@ Cloudflare가 실제 제공한 HTTPS 주소에서 health, 가입·로그인·지
 
 iPhone Safari에서 실제 주소를 열고 공유 → 홈 화면에 추가 → 설치 아이콘으로 실행합니다. **이 기기 알림 켜기**를 누른 뒤 권한을 허용합니다. 앱이 이미 종료된 상태에서 다른 브라우저의 같은 사용자 계정으로 **테스트 푸시 보내기**를 눌러 잠금화면 수신을 확인합니다. [iPhone 테스트 기록](iphone-test.md)을 실제 관찰로 채웁니다.
 
-## 로컬 Cloudflare 실행
+## 로컬 Cloudflare 실행 (개발자)
 
 Node.js 24에서 저장소 루트 기준으로 실행합니다.
 
@@ -55,7 +55,7 @@ npm run cf:migrate:local
 npm run cf:dev
 ```
 
-`http://localhost:8787`에서 앱을 확인합니다. `cf:prepare`는 `.env`의 VAPID 공개·비밀키, VAPID 연락처, 구독 암호화키, 세션 비밀만 `.dev.vars`로 옮기고 로컬 origin을 8787로 지정합니다. 파일 권한은 600이며 기존의 비어 있지 않은 값은 보존합니다. 기존 `.dev.vars`의 origin이 다른 포트이면 직접 맞춥니다. 키 값은 터미널에 출력하지 않습니다. Cloudflare 인증 정보는 복사 대상이 아닙니다.
+`http://127.0.0.1:8787`에서 앱을 확인합니다. `cf:prepare`는 `.env`의 VAPID 공개·비밀키, VAPID 연락처, 구독 암호화키, 세션 비밀만 `.dev.vars`로 옮기고 새 파일의 origin을 `http://127.0.0.1:8787`로 지정합니다. 파일 권한은 600이며 기존의 비어 있지 않은 값은 보존합니다. 기존 `.dev.vars`가 `http://localhost:8787` 또는 다른 포트이면 `PUBLIC_ORIGIN`만 접속 주소와 일치하게 편집합니다. 키 값은 터미널에 출력하지 않습니다. Cloudflare 인증 정보는 복사 대상이 아닙니다.
 
 로컬 D1은 원격 D1과 별개입니다. 로컬 계정·지출·구독이 원격 앱으로 자동 이전되지 않습니다. 로컬 HTTP는 데스크톱 개발 확인용이며 실제 iPhone은 공개 HTTPS 앱을 홈 화면에 설치하여 검증합니다.
 
@@ -72,12 +72,27 @@ npm run test:e2e:cloudflare
 로컬 예약 handler는 개발 서버의 테스트용 주소로 호출할 수 있습니다. 운영 시각이나 사용자 데이터를 임의로 바꾸지 않습니다.
 
 ```sh
-curl --fail 'http://localhost:8787/cdn-cgi/local/scheduled?cron=*+*+*+*+*'
+curl --fail 'http://127.0.0.1:8787/cdn-cgi/local/scheduled?cron=*+*+*+*+*'
 ```
 
-## 실제 배포 절차
+## 개발자 CLI 대안
 
-다음은 계정 연결과 네트워크 허용이 완료된 뒤 실행하는 개발자용 절차입니다. 인증 실패 중에는 원격 D1 생성이나 배포가 완료됐다고 표시하지 않습니다.
+다음은 Cloudflare API에 접속할 수 있는 개발 환경에서 사용하는 CLI 절차입니다. 현재 Codex 머신에서는 Cloudflare 인증·API 접근이 HTTP 403으로 차단되어 있어 이 경로의 원격 작업이 진행되지 않았습니다. 앞의 GitHub import 방식은 Cloudflare 자체 빌드 서버에서 수행합니다.
+
+CLI를 사용하는 개발자는 별도로 Wrangler 계정을 연결합니다. [공식 device 승인 방식](https://developers.cloudflare.com/workers/wrangler/commands/general/#use-wrangler-login-without-a-local-callback-server)은 다른 컴퓨터의 브라우저로도 가능하며 코드는 보통 5분 후 만료됩니다.
+
+```sh
+npm run cf:login
+npm run cf:whoami
+```
+
+인증 정보는 저장소 밖의 Wrangler 설정 디렉터리에 보관합니다. CLI helper는 HOME을 바꾸지 않고 XDG 설정 경로를 사용하며, 기존 홈의 `.wrangler`가 있으면 Wrangler는 그 경로를 우선합니다. OAuth/API 자격증명을 `.env`, `.dev.vars`, 앱 코드에 복사하지 않습니다.
+
+### 새 Worker의 수동 초기 설정
+
+**자동 배포로 이미 만들어진 Worker에는 아래의 로컬 secret bulk 절차를 실행하지 않습니다.** Cloudflare에서 처음 생성된 키는 로컬 `.env`의 키와 다를 수 있고, `secret list`로 기존 비밀값을 회수할 수 없습니다. 기존 키가 있는 Worker의 업데이트는 키를 보존하는 자동 helper로 진행합니다. 키 일부가 없어졌다면 임의 재생성 대신 원래 값으로 일관성을 복구해야 합니다.
+
+다음은 비밀이 아직 없는 새 Worker를 수동 초기 설정하는 경우의 참고 절차입니다. 계정 연결·네트워크 접근을 먼저 확인합니다. 원격 인증 실패 중에는 D1 생성이나 배포가 완료됐다고 표시하지 않습니다.
 
 1. 기존 D1 목록을 확인합니다. 같은 이름의 올바른 DB가 이미 있으면 재사용하고, 없을 때만 생성합니다.
 
@@ -108,7 +123,7 @@ npm run cf:deploy
 
 운영 JSON에는 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `DATA_ENCRYPTION_KEY`, `SESSION_SECRET`만 들어갑니다. `PUBLIC_ORIGIN`, API/OAuth 인증 정보, 거래 기록은 넣지 않습니다. 파일 권한은 600이고 Git·Docker build context에서 제외해야 합니다. helper는 기존 VAPID 쌍·암호화키·세션 비밀을 유지하며 명시한 연락 URL만 갱신할 수 있습니다. 원래 키를 잃으면 기존 구독 복호화나 발송이 영향을 받으므로 접근을 제한한 비밀 보관소에 백업합니다. JSON 내용을 터미널이나 채팅에 출력하지 않습니다.
 
-Wrangler의 [secret bulk](https://developers.cloudflare.com/workers/wrangler/commands/secret/#bulk)는 파일에서 직접 값을 가져옵니다. 이미 배포한 Worker에 같은 비밀을 다시 적용해도 유지해야 할 키를 재생성하지 않습니다. 파일을 삭제하기 전 안전한 비밀 백업을 확보합니다.
+Wrangler의 [secret bulk](https://developers.cloudflare.com/workers/wrangler/commands/workers/#secret-bulk)는 파일에서 직접 값을 가져옵니다. 파일에 없는 기존 비밀은 보존되지만 이름이 같은 값을 넣으면 갱신하므로 위의 새 Worker 조건을 지킵니다. 파일을 삭제하기 전 안전한 비밀 백업을 확보합니다.
 
 4. 실제 주소에서 상태·설치 파일을 검사하고 가입·저장·새로고침·내보내기를 확인합니다.
 
@@ -123,7 +138,7 @@ node scripts/cloudflare-cli.mjs tail salary-guardians
 
 ## 무료 한도와 예약 푸시
 
-이 구성은 1분마다 실행되는 Cron 하나를 사용합니다. KST 급여일·일요일·주기 마지막 날, 80% 첫 도달, 미기록 조건을 서버 데이터로 확인하고 저장된 발송 이력으로 중복을 억제합니다. 매 Cron 호출의 전달 처리는 최대 8건으로 제한하여 작은 개인용 앱의 작업을 나누며 밀린 작업은 다음 실행에서 처리합니다. 여러 기기·사용자가 많아지면 발송 지연과 쿼리/CPU 사용량을 확인해야 합니다.
+이 구성은 1분마다 실행되는 Cron 하나를 사용합니다. KST 급여일·일요일·주기 마지막 날, 80% 첫 도달, 미기록 조건을 서버 데이터로 확인하고 저장된 발송 이력으로 중복을 억제합니다. 알림 대상 사용자를 오래 기다린 순서로 최대 2명 확인하고, 전달 작업은 최대 8건 처리합니다. batch 안의 문장까지 포함하여 호출당 D1 쿼리 50개 한도를 계산하므로 남은 예산에 따라 8건보다 적게 처리할 수 있습니다. 밀린 사용자·작업은 DB에 남겨 다음 분에 처리합니다. 여러 기기·사용자가 많아지면 발송 지연과 쿼리/CPU 사용량을 확인해야 합니다.
 
 재시도는 30초부터 지수 지연하고 기본 최대 1시간 간격·8회 시도하며 실제 다음 1분 Cron에서 처리합니다. push 서비스의 `Retry-After`는 최대 24시간 범위에서 따릅니다. 정기 일정 누락은 12시간 범위에서 보완하고 예정 시각으로부터 24시간 후 만료합니다. 조건부 작업도 생성 후 24시간에 만료하며, 새 지출이 저장되면 오래된 미기록 작업은 취소합니다. 404/410 구독은 제거하고 테스트 푸시는 사용자별 1분에 최대 5회입니다. 발송 로그의 `deliveryId`, UTC `timestamp`, `attempt`, `result`, 가능한 경우 `statusCode`를 기기 관찰과 함께 기록합니다.
 

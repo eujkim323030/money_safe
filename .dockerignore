@@ -15,4 +15,5 @@ playwright-report
 .dev.vars
 .dev.vars.*
 .cloudflare-secrets.json
+.cloudflare-dashboard-*/
 .cloudflare-deployment.json

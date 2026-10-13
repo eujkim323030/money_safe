@@ -14,4 +14,5 @@ playwright-report/
 .dev.vars.*
 .cloudflare-secrets.json
 .cloudflare-deployment.json
+.cloudflare-dashboard-*/
 .DS_Store

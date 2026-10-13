@@ -109,7 +109,7 @@ validateSecrets(secrets);
 if (options['secrets-out']) {
   outputContents = `${JSON.stringify(secrets, null, 2)}\n`;
 } else {
-  const origin = existing.PUBLIC_ORIGIN || 'http://localhost:8787';
+  const origin = existing.PUBLIC_ORIGIN || 'http://127.0.0.1:8787';
   const parsedOrigin = new URL(origin);
   if (!['http:', 'https:'].includes(parsedOrigin.protocol) || parsedOrigin.origin !== origin) {
     throw new Error('PUBLIC_ORIGIN must be an absolute HTTP(S) origin without a trailing slash.');
