@@ -1,0 +1,23 @@
+{
+  "app": {"name": "월급수비대", "locale": "ko-KR", "timezone": "Asia/Seoul", "currency": "KRW", "theme": "pastel-pixel"},
+  "salary": {"monthlyAmount": 3650000, "payday": 25, "cycleStartDay": 25},
+  "allocation": {
+    "savings": {"youth": 500000, "nonghyup": 300000, "travel": 100000},
+    "loanPayments": {"otherLoan": 200000, "bossLoanRegular": 230000, "bossLoanExtra": 100000},
+    "fixedExpenses": 652000,
+    "emergencyContribution": 100000,
+    "bigPurchaseContribution": 100000,
+    "variableBudget": 1368000
+  },
+  "categories": [
+    {"id":"food", "name":"식비", "budget":550000},
+    {"id":"cafe", "name":"카페", "budget":120000},
+    {"id":"date", "name":"데이트", "budget":250000},
+    {"id":"shopping", "name":"쇼핑", "budget":150000},
+    {"id":"running", "name":"러닝", "budget":120000},
+    {"id":"other", "name":"기타", "budget":178000}
+  ],
+  "bossLoan": {"initialBalance":5000000,"currentBalance":5000000,"annualInterestRate":0.08,"regularPayment":230000,"extraPrincipalGoal":100000,"prepaymentFeeRate":0,"repaymentType":"unconfirmed"},
+  "goals": {"emergencyFund":{"balance":5000000,"target":6000000,"monthlyContribution":100000},"bigPurchaseFund":{"balance":null,"monthlyContribution":100000}},
+  "push": {"enabled":false,"payday":{"day":25,"hour":9},"weeklyReview":{"dayOfWeek":0,"hour":20},"cycleEnd":{"day":24,"hour":20},"budgetThreshold":0.8,"inactivityDays":3}
+}

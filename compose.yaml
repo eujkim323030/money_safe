@@ -1,0 +1,54 @@
+x-application: &application
+  image: salary-guardians:local
+  build: .
+  env_file: .env
+  environment: &application-environment
+    NODE_ENV: production
+    PORT: "3000"
+    DATA_DIR: /data
+    PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set your public HTTPS origin in .env}
+  volumes:
+    - app-data:/data
+  restart: unless-stopped
+
+services:
+  web:
+    <<: *application
+    environment:
+      <<: *application-environment
+      TRUST_PROXY: "1"
+    command: ["npm", "start"]
+    healthcheck:
+      test: ["CMD", "node", "--input-type=module", "-e", "const response = await fetch('http://127.0.0.1:3000/api/health'); process.exit(response.ok ? 0 : 1)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 4
+  worker:
+    <<: *application
+    command: ["npm", "run", "worker:prod"]
+    depends_on:
+      web:
+        condition: service_healthy
+  proxy:
+    image: caddy:2.10-alpine
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set the real public DNS name in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?Set the TLS certificate contact email in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  app-data:
+  caddy-data:
+  caddy-config:

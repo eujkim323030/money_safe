@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ES2023", "lib": ["ES2023", "DOM", "DOM.Iterable"], "module": "ESNext", "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true, "resolveJsonModule": true, "jsx": "react-jsx", "strict": true, "esModuleInterop": true,
+    "skipLibCheck": true, "noEmit": true, "types": ["node", "vite/client"]
+  },
+  "include": ["src", "shared", "server", "cloudflare", "tests", "scripts", "vite.config.ts", "playwright.config.ts"]
+}

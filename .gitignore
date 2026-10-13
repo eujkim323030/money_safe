@@ -1,0 +1,17 @@
+node_modules/
+dist/
+data/
+backups/
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+*.log
+*.sqlite*
+.wrangler/
+.dev.vars
+.dev.vars.*
+.cloudflare-secrets.json
+.cloudflare-deployment.json
+.DS_Store
