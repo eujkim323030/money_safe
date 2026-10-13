@@ -1,0 +1,44 @@
+name: Verify deployed app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-deployed.yml'
+      - 'scripts/smoke-public-app.mjs'
+      - 'cloudflare/**'
+      - 'shared/**'
+      - 'src/**'
+      - 'public/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-deployed-app
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify public app and delete temporary test account
+        run: npm run test:deployed -- --url https://money-safe.ttlikim16.workers.dev
+      - name: Save safe verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployed-app-verification
+          path: .smoke-public-results.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 3
