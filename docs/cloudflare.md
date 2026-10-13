@@ -8,7 +8,7 @@
 
 월급수비대는 **Workers + D1 + Cron**의 무료 범위를 사용합니다. Cloudflare가 GitHub 소스를 가져와 자체 빌드 서버에서 배포하며 개인용 `workers.dev` HTTPS 주소를 제공합니다. 서버 비밀키와 DB 설정은 자동 배포 helper가 처리합니다. 사용자는 API 토큰·OAuth 토큰·비밀번호·앱 비밀키를 채팅에 전달하지 않습니다.
 
-**현재 GitHub 코드 업로드와 공개 배포 주소는 아직 확인되지 않았습니다. 실제 iPhone 푸시 수신도 미검증입니다.** 위 과정은 코드 업로드 완료를 확인한 뒤 진행합니다. 실제 주소가 발급되기 전에는 예시 URL을 배포 결과로 쓰지 않습니다.
+실행 코드는 [eujkim323030/money_safe](https://github.com/eujkim323030/money_safe)의 `main` 브랜치에 업로드했습니다. **공개 앱 주소와 실제 iPhone 푸시 수신은 아직 미검증입니다.** 실제 주소가 발급되기 전에는 예시 URL을 배포 결과로 쓰지 않습니다.
 
 ## Cloudflare 브라우저에서 GitHub 연결
 
@@ -19,7 +19,7 @@
 | 프로젝트 설정 | 값 |
 | --- | --- |
 | Worker 이름 | `salary-guardians` (`wrangler.jsonc`의 name과 동일) |
-| 배포 브랜치 | 실제 코드가 업로드된 배포 브랜치; 업로드 완료 후 확인 |
+| 배포 브랜치 | `main` |
 | Root directory | 저장소 루트 |
 | Build command | `npm run build` |
 | Deploy command | `npm run cf:deploy:dashboard` |
