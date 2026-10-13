@@ -11,7 +11,7 @@ const config = { name: 'salary-guardians', main: 'cloudflare/index.ts', assets: 
 const env = { CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: 'TOKEN-CANARY-NOT-FOR-LOGS', WRANGLER_CI_MATCH_TAG: 'linked-tag', WRANGLER_CI_OVERRIDE_NAME: 'money-safe' };
 const appTables = ['users', 'sessions', 'states', 'rate_limits', 'push_subscriptions', 'push_events', 'push_deliveries', 'd1_migrations'];
 interface RunOptions { cwd: string; environment: Record<string, string> }
-interface Setup { names?: string[]; binding?: boolean; existingDb?: boolean; tag?: string; fail?: string; tables?: string[]; stale?: boolean; occupied?: number; plainKeys?: boolean; origin?: string }
+interface Setup { names?: string[]; binding?: boolean; existingDb?: boolean; tag?: string; fail?: string; tables?: string[]; stale?: boolean; occupied?: number; plainKeys?: boolean; origin?: string; assets?: boolean; marker?: boolean }
 async function fixture(context: TestContext, setup: Setup = {}) {
   const cwd = await mkdtemp(join(tmpdir(), 'salary-dashboard-test-')); context.after(() => rm(cwd, { recursive: true, force: true }));
   let names = setup.names ?? [...SECRET_NAMES];
@@ -47,6 +47,8 @@ async function fixture(context: TestContext, setup: Setup = {}) {
     assert.ok(url.startsWith(`https://api.cloudflare.com/client/v4/accounts/${account}/`));
     assert.equal((init.headers as Record<string, string>).Authorization, `Bearer ${env.CLOUDFLARE_API_TOKEN}`);
     const bindings: Record<string, string>[] = setup.binding ? [{ type: 'd1', name: 'DB', id: dbId }] : [];
+    if (setup.assets) bindings.push({ type: 'assets', name: 'ASSETS' });
+    if (setup.marker) bindings.push({ type: 'plain_text', name: 'SALARY_GUARDIANS_APP', text: 'salary-guardians/v1' });
     if (setup.plainKeys) bindings.push({ type: 'plain_text', name: 'DATA_ENCRYPTION_KEY', text: 'PRIVATE-OUTPUT-CANARY' });
     if (setup.origin) bindings.push({ type: 'plain_text', name: 'PUBLIC_ORIGIN', text: setup.origin });
     const result = url.endsWith('/settings') ? { bindings }
@@ -96,12 +98,31 @@ test('new untouched Build Worker gets five secure secrets through a private temp
 });
 
 test('missing keys on an existing application or legacy plain key bindings never trigger regeneration', async context => {
-  const f = await fixture(context, { names: [], binding: true });
+  const f = await fixture(context, { names: [], binding: true, marker: true });
   await assert.rejects(deployDashboard(f.options), /Automatic key regeneration is disabled/);
   assert.ok(!f.calls.some(args => args[0] === 'd1')); assert.deepEqual(await readdir(f.cwd), []);
   const legacy = await fixture(context, { names: [], plainKeys: true });
   await assert.rejects(deployDashboard(legacy.options), /Automatic key regeneration is disabled/);
   assert.ok(!legacy.calls.some(args => args[0] === 'd1'));
+});
+
+test('first default deploy recovers zero secrets with its empty bound DB and expected ASSETS', async context => {
+  const f = await fixture(context, { names: [], binding: true, assets: true, tables: [] });
+  await deployDashboard(f.options);
+  assert.equal(f.secrets.length, 1);
+  assert.ok(!f.calls.some(args => args[1] === 'create'));
+  const migration = f.calls.findIndex(args => args[1] === 'migrations');
+  assert.ok(migration >= 0 && migration < f.calls.findIndex(args => args[1] === 'bulk'));
+});
+
+test('bound app schema with accounts refuses recovery while an empty app schema can initialize', async context => {
+  const occupied = await fixture(context, { names: [], binding: true, assets: true, occupied: 1 });
+  await assert.rejects(deployDashboard(occupied.options), /original keys are missing/);
+  assert.ok(!occupied.calls.some(args => args[1] === 'migrations' || args[1] === 'bulk' || args[0] === 'deploy'));
+  const empty = await fixture(context, { names: [], binding: true, assets: true, occupied: 0 });
+  await deployDashboard(empty.options);
+  assert.equal(empty.secrets.length, 1);
+  assert.ok(!empty.calls.some(args => args[1] === 'create'));
 });
 
 test('existing account data blocks key generation while an empty migration ledger remains retryable', async context => {

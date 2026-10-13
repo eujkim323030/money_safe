@@ -1,24 +1,32 @@
 # 무료 Cloudflare 배포
 
-1. 로그인한 [Cloudflare Workers & Pages](https://dash.cloudflare.com/?to=/:account/workers-and-pages)를 열고 **Create application**을 눌러 새 앱을 만듭니다.
-2. **Import a repository** 옆 **Get started**에서 GitHub를 연결하고, 코드 업로드가 완료된 `money_safe`를 선택합니다.
-3. 아래 표의 앱 이름·빌드·배포 명령을 확인하고 **Save and Deploy**를 누릅니다.
-4. D1 권한 오류가 나오면 기존 빌드 토큰에 해당 계정의 **D1 Edit**를 추가하고 빌드를 재시도합니다.
-5. 실제 HTTPS 주소가 나오면 iPhone 홈 화면에 설치하고 앱 종료 후 푸시 수신을 확인합니다.
+1. 현재 Cloudflare의 **money-safe → Settings → Build → Build Configuration**을 엽니다.
+2. Build command를 `npm run build`, Deploy command를 `npm run cf:deploy:dashboard`로 저장합니다.
+3. 최신 `main`의 복구 코드가 반영된 빌드에서 **Retry build**를 누릅니다.
+4. D1 권한 오류가 나오면 기존 빌드 토큰에 해당 계정의 **D1 Edit**를 추가하고 재시도합니다.
+5. 아래 실제 앱 주소에서 가입을 다시 확인한 뒤 iPhone 종료 상태 푸시를 검증합니다.
 
 월급수비대는 **Workers + D1 + Cron**의 무료 범위를 사용합니다. Cloudflare가 GitHub 소스를 가져와 자체 빌드 서버에서 배포하며 개인용 `workers.dev` HTTPS 주소를 제공합니다. 서버 비밀키와 DB 설정은 자동 배포 helper가 처리합니다. 사용자는 API 토큰·OAuth 토큰·비밀번호·앱 비밀키를 채팅에 전달하지 않습니다.
 
-실행 코드는 [eujkim323030/money_safe](https://github.com/eujkim323030/money_safe)의 `main` 브랜치에 업로드했습니다. **공개 앱 주소와 실제 iPhone 푸시 수신은 아직 미검증입니다.** 실제 주소가 발급되기 전에는 예시 URL을 배포 결과로 쓰지 않습니다.
+실행 코드는 [eujkim323030/money_safe](https://github.com/eujkim323030/money_safe)의 `main` 브랜치에 업로드했습니다. 실제 앱 주소는 **[https://money-safe.ttlikim16.workers.dev](https://money-safe.ttlikim16.workers.dev)**이며 사용자가 홈 화면 설치 후 로그인 화면을 확인했습니다. 회원가입에는 **`서버 세션 비밀키 설정이 필요합니다.`** 오류가 발생했습니다. 화면 배포는 확인됐지만 서버 초기 설정·가입·실제 iPhone 푸시 수신은 완료되지 않았습니다.
 
-## Cloudflare 브라우저에서 GitHub 연결
+## 현재 회원가입 오류 복구
 
-이 절차는 이미 로그인한 Cloudflare 대시보드에서 진행합니다. [공식 Workers Builds 절차](https://developers.cloudflare.com/workers/ci-cd/builds/#connect-a-new-worker)에 나오는 버튼명만 사용합니다.
+확인된 오류는 서버의 `SESSION_SECRET` 설정이 없다는 뜻입니다. 현재 앱 `money-safe`의 **Settings → Build → Build Configuration**에서 위의 빌드·배포 명령을 저장하고 최신 복구 코드가 반영된 `main` 빌드를 재시도합니다. [공식 Build 설정](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#build-settings)에 따르면 저장된 변경은 다음 빌드에 적용되며, Retry도 재시도 시점의 설정을 사용합니다.
+
+복구 helper는 현재 Worker와 연결된 기존 D1을 먼저 확인합니다. 서버 초기 설정 완료 기록이 없는 첫 설치이고 서버 비밀 5개가 모두 없으며 DB가 비어 있다는 검증을 통과한 경우에만 migrations와 새 비밀 초기화를 진행합니다. 기존 계정·기록·구독·초기 설정 완료 기록이 있거나 비밀 일부만 없어졌다면 원래 키 복구를 요구하고 중단합니다. 비밀값을 로그나 채팅에 출력하지 않습니다. 이 복구의 실제 원격 성공은 아직 확인되지 않았습니다.
+
+재시도에서 D1 권한 오류가 나타난 경우에는 아래의 **D1 Edit** 권한 조정을 적용합니다. 완료 후 실제 앱에서 가입·로그인·저장과 CPU 한도를 검증하고, 마지막으로 iPhone 푸시를 확인합니다. 비밀번호나 API 토큰은 채팅에 보내지 않습니다.
+
+## 현재 Cloudflare 프로젝트 설정
+
+이미 만들어진 `money-safe` 프로젝트에서 다음 값을 사용합니다. GitHub 연결과 배포 브랜치는 현재 프로젝트의 설정을 확인합니다.
 
 처음 연결할 때 GitHub 권한 승인이 나타나면 **Cloudflare Workers & Pages** 앱에 필요한 `money_safe` 저장소를 선택하여 접근을 허용합니다. 공식 GitHub 연동 안내는 **Only select repositories**로 필요한 저장소에 접근을 제한하도록 권장합니다. 기존 저장소를 연결하는 일반 Git import 방식입니다.
 
 | 프로젝트 설정 | 값 |
 | --- | --- |
-| Worker 이름 | `salary-guardians` (`wrangler.jsonc`의 name과 동일) |
+| Worker 이름 | `money-safe` (현재 앱 이름 유지; CI 이름 override 사용) |
 | 배포 브랜치 | `main` |
 | Root directory | 저장소 루트 |
 | Build command | `npm run build` |
@@ -26,7 +34,7 @@
 
 `.node-version`에 Node 24를 지정했으므로 사용자에게 Node 버전 값을 따로 입력하도록 요구하지 않습니다. 공식 빌드 이미지는 현재 Node 24.18.0을 기본으로 제공하며 `.node-version`과 `.nvmrc`를 읽어 버전을 선택합니다.
 
-자동 배포 helper는 CI에 연결된 앱의 이름·태그·계정을 확인하고 해당 앱의 D1 DB를 생성하거나 재사용하여 migrations를 적용합니다. 서버 비밀과 기존 데이터가 없는 최초 설치에서 필요한 키를 생성하며, 이후 배포에서는 기존 키를 유지합니다. VAPID 쌍이나 암호화키·세션 비밀이 부분적으로 없거나 기존 데이터에 필요한 키가 사라졌다면 작업을 중단합니다. 빌드 로그에 키 값을 출력하지 않습니다. 최초 설정은 하나의 빌드로 진행하며, 실제 빌드·배포 성공과 원격 검증을 확인하기 전에는 자동 설정이 완료됐다고 표시하지 않습니다.
+자동 배포 helper는 CI에 연결된 앱의 이름·태그·계정을 확인하고 해당 앱의 D1 DB를 생성하거나 재사용하여 migrations를 적용합니다. 현재 프로젝트에서는 `money-safe`를 대상으로 합니다. 서버 비밀과 기존 데이터가 없는 최초 설치에서 필요한 키를 생성하며, 이후 배포에서는 기존 키를 유지합니다. VAPID 쌍이나 암호화키·세션 비밀이 부분적으로 없거나 기존 데이터에 필요한 키가 사라졌다면 작업을 중단합니다. 빌드 로그에 키 값을 출력하지 않습니다. 최초 설정은 하나의 빌드로 진행하며, 실제 빌드·배포 성공과 원격 검증을 확인하기 전에는 자동 설정이 완료됐다고 표시하지 않습니다.
 
 ### D1 권한을 한 번 추가해야 하는 경우
 
@@ -38,7 +46,7 @@ Build 설정의 **Build variables and secrets**는 빌드 때만 사용하는 �
 
 ### 배포 후 확인
 
-Cloudflare가 실제 제공한 HTTPS 주소에서 health, 가입·로그인·지출 저장·새로고침·내보내기를 확인합니다. 무료 플랜의 실제 CPU 사용량과 오류도 확인합니다. 특히 보안 해싱과 예약 발송이 로컬에서 통과했더라도 실제 Workers의 10ms CPU 한도 검증은 배포 후 별도입니다.
+[실제 앱](https://money-safe.ttlikim16.workers.dev)에서 health, 가입·로그인·지출 저장·새로고침·내보내기를 확인합니다. 현재 가입 오류가 해결된 뒤 진행합니다. 무료 플랜의 실제 CPU 사용량과 오류도 확인합니다. 특히 보안 해싱과 예약 발송이 로컬에서 통과했더라도 실제 Workers의 10ms CPU 한도 검증은 배포 후 별도입니다.
 
 iPhone Safari에서 실제 주소를 열고 공유 → 홈 화면에 추가 → 설치 아이콘으로 실행합니다. **이 기기 알림 켜기**를 누른 뒤 권한을 허용합니다. 앱이 이미 종료된 상태에서 다른 브라우저의 같은 사용자 계정으로 **테스트 푸시 보내기**를 눌러 잠금화면 수신을 확인합니다. [iPhone 테스트 기록](iphone-test.md)을 실제 관찰로 채웁니다.
 

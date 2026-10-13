@@ -16,4 +16,5 @@ playwright-report
 .dev.vars.*
 .cloudflare-secrets.json
 .cloudflare-dashboard-*/
+.smoke-public-results.json
 .cloudflare-deployment.json

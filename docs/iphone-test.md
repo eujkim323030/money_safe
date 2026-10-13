@@ -1,12 +1,12 @@
 # 실제 iPhone 설치·푸시 테스트
 
-현재 외부 HTTPS 배포와 실제 iPhone 테스트는 **미실행**입니다. 아래 기록을 실제 기기로 채우기 전에는 푸시 완료 또는 출시 준비 완료로 표시하지 않습니다. 서버 HTTP 201, 모의 Web Push 테스트, 브라우저 자동화만으로 실제 iPhone 수신이 입증되지 않습니다.
+실제 HTTPS 앱은 **[https://money-safe.ttlikim16.workers.dev](https://money-safe.ttlikim16.workers.dev)**에 배포됐으며, 사용자가 홈 화면 설치 후 로그인 화면을 확인했습니다. 회원가입에는 **`서버 세션 비밀키 설정이 필요합니다.`** 오류가 발생하여 [현재 서버 초기 설정 복구](cloudflare.md#현재-회원가입-오류-복구)를 진행 중입니다. **알림 동의·구독·발송·앱 종료 상태의 실제 iPhone 수신은 아직 미검증**입니다. 서버 HTTP 201, 모의 Web Push 테스트, 브라우저 자동화만으로 수신이 입증되지 않습니다.
 
 ## 준비
 
 - iOS/iPadOS 16.4 이상 iPhone, 인터넷 연결, Safari.
-- [배포 절차](deploy.md)를 완료한 공개 HTTPS 주소. 유효한 인증서, `manifest.webmanifest`, `/sw.js`, 같은 origin API가 제공되어야 합니다.
-- 서버에 고정 VAPID 쌍/암호화키/세션 비밀, 지속 DB, 실행 중인 web와 worker.
+- [Cloudflare 초기 설정 복구](cloudflare.md)를 완료한 실제 앱 주소. 유효한 인증서, `manifest.webmanifest`, `/sw.js`, 같은 origin API가 제공되어야 합니다.
+- 서버에 고정 VAPID 쌍/암호화키/세션 비밀, D1과 예약 Cron 설정. 현재 가입 오류를 먼저 해결합니다. Docker 대안에서는 [배포 절차](deploy.md)의 web와 worker를 실행합니다.
 - 테스트 사용자 계정. 화면 잠금 상태의 알림도 볼 수 있도록 iPhone 설정에서 앱의 알림 허용·잠금화면·배너를 켭니다. 최초 검증은 집중 모드와 알림 요약을 해제해 표시 지연을 줄입니다.
 
 ## 홈 화면 설치와 사용자 동작에 의한 권한
@@ -33,11 +33,13 @@
 
 명령행으로 검증할 경우에는 테스트 전용 계정과 보안 세션 쿠키를 사용하고 쿠키·비밀번호를 shell history/공유 로그에 노출하지 않아야 합니다. 일반 사용자에게 비밀 입력을 요구하는 복잡한 curl 절차보다 위 두 번째 브라우저 방법을 권장합니다.
 
-서버에서는 아래처럼 같은 시간대의 worker 로그를 확인합니다.
+Cloudflare Worker `money-safe`의 로그에서 같은 시간대의 발송을 확인합니다. CLI가 Cloudflare API에 접속 가능한 개발 환경에서는 다음 명령을 사용할 수 있습니다.
 
 ```sh
-docker compose logs --since 10m worker
+node scripts/cloudflare-cli.mjs tail money-safe
 ```
+
+Docker 대안의 경우에는 `docker compose logs --since 10m worker`를 사용합니다. 현재 Codex 환경의 API 접근 차단 때문에 CLI 로그를 읽지 못하면 로그인한 Cloudflare 화면에서 확인한 안전한 결과 요약을 기록합니다. 비밀번호·세션 쿠키·API 토큰을 채팅으로 전달하지 않습니다.
 
 `event=push_delivery`의 `deliveryId`, `timestamp`(UTC), `result=accepted`, `statusCode`와 기기 관찰을 함께 기록합니다. 로그의 `userId`는 개인 식별 정보일 수 있으므로 외부 공유 시 마스킹합니다. 알림 스크린샷에는 개인 거래·계정 정보가 없도록 합니다. APNs/Web Push 수락은 수신 증거가 아니며 표시 시간은 OS가 결정합니다.
 
@@ -63,14 +65,15 @@ docker compose logs --since 10m worker
 
 ## 테스트 기록 양식
 
-실행 전 상태는 모두 `미실행`입니다. 실제 관찰 없이 체크박스를 완료로 바꾸지 않습니다.
+아래에는 현재 사용자 관찰만 반영했습니다. 나머지는 실제 검증 후 채우며, 관찰 없이 완료로 바꾸지 않습니다.
 
 | 항목 | 기록 |
 | --- | --- |
 | 실행자/실행 시각(KST) | 미실행 |
-| 배포 HTTPS origin / 앱 버전 또는 커밋 | 미실행 |
-| iPhone 모델 / iOS 버전 | 미실행 |
-| Safari 홈 화면 설치 / 독립 실행 | 미실행 |
+| 배포 HTTPS origin / 앱 버전 또는 커밋 | `https://money-safe.ttlikim16.workers.dev`; 설치 앱 버전·커밋 미기록 |
+| iPhone 모델 / iOS 버전 | 미확인 |
+| Safari 홈 화면 설치 / 독립 실행 | 사용자 관찰: 홈 화면 설치 후 로그인 화면 표시 |
+| 가입·로그인 | 가입 오류: `서버 세션 비밀키 설정이 필요합니다.`; 성공 검증 대기 |
 | 직접 누른 권한 버튼 / 허용 결과 | 미실행 |
 | 서버 구독 기기 수(키 제외) | 미실행 |
 | 앱 종료/기기 잠금 시각(KST) | 미실행 |

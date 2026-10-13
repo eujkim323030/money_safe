@@ -26,6 +26,7 @@
     "cf:dry-run": "node scripts/cloudflare-cli.mjs deploy --dry-run --outdir .wrangler/dry-run",
     "cf:deploy": "node scripts/cloudflare-cli.mjs deploy",
     "cf:deploy:dashboard": "node scripts/cloudflare-dashboard-deploy.mjs",
+    "test:deployed": "node scripts/smoke-public-app.mjs",
     "test:e2e:cloudflare": "node scripts/cloudflare-e2e.mjs"
   },
   "dependencies": {

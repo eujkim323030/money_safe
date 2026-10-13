@@ -15,4 +15,5 @@ playwright-report/
 .cloudflare-secrets.json
 .cloudflare-deployment.json
 .cloudflare-dashboard-*/
+.smoke-public-results.json
 .DS_Store

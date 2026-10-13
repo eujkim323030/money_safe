@@ -112,11 +112,15 @@ export async function deployDashboard(options = {}) {
     if (settings.bindings.some(binding => !['d1', 'plain_text', 'secret_text', 'assets'].includes(binding.type))) throw new DashboardDeployError('The Worker has resources outside this application. No remote resources were changed.');
     const bindings = settings.bindings.filter(binding => binding.type === 'd1');
     if (bindings.length > 1 || bindings.some(binding => binding.name !== 'DB' || !uuid(binding.id))) throw new DashboardDeployError('Existing D1 bindings do not match the application. No database was changed.');
+    const assets = settings.bindings.filter(binding => binding.type === 'assets');
+    if (assets.length > 1 || assets.some(binding => binding.name !== (source.assets.binding ?? 'ASSETS'))) throw new DashboardDeployError('Existing asset bindings do not match the application. No remote resources were changed.');
     const mode = secretState(await cli(['secret', 'list', '--name', name, '--format', 'json'], 'Secret name lookup', true));
     if (mode === 'create') {
       const marker = settings.bindings.find(binding => binding.name === 'SALARY_GUARDIANS_APP');
       const legacyKeys = settings.bindings.some(binding => SECRET_NAMES.includes(binding.name));
-      if (bindings.length || marker || legacyKeys || settings.bindings.some(binding => binding.type !== 'plain_text')) {
+      // A first plain Wrangler deploy may already have attached an empty DB and ASSETS.
+      // The live schema/occupancy checks below must prove that recovery cannot rotate keys for existing data.
+      if (marker || legacyKeys || settings.bindings.some(binding => !['plain_text', 'd1', 'assets'].includes(binding.type))) {
         throw new DashboardDeployError('All application secrets are missing from an existing application. Automatic key regeneration is disabled; restore its original keys or import into a new untouched Worker.');
       }
     }

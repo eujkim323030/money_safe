@@ -2,11 +2,11 @@
 
 돈은 지키고, 인생은 즐긴다. iPhone 홈 화면에 설치하는 한국어 PWA와 실제 서버 Web Push 백엔드입니다. Cloudflare 무료 환경용 Workers/D1/Cron 구현과 일반 서버용 Node/SQLite 구현을 제공합니다. 첨부 PRD와 [starter-config.json](shared/starter-config.json)을 사용하며, 첫 실행의 지출·상환·적립 기록은 모두 비어 있습니다. 픽셀 캐릭터는 참고 시안의 파스텔 RPG 분위기를 반영해 앱용 SVG로 제작했습니다.
 
-**공개 HTTPS 배포 및 실제 iPhone 종료 상태의 푸시 수신은 아직 검증하지 않았습니다. 해당 출시 조건은 미완료입니다.** 자동 테스트의 암호화·예약·서비스 워커 검사나 푸시 서비스의 접수 응답을 실기기 수신으로 간주하지 않습니다.
+실제 앱은 [money-safe.ttlikim16.workers.dev](https://money-safe.ttlikim16.workers.dev)에 배포됐고, 사용자가 iPhone 홈 화면 설치 후 로그인 화면을 확인했습니다. **현재 회원가입의 서버 세션 키 설정 오류를 복구 중이며, 실제 iPhone 종료 상태의 푸시 수신은 미검증입니다.** 자동 테스트나 푸시 서비스의 접수 응답을 실기기 수신으로 간주하지 않습니다.
 
 ## Cloudflare 무료 환경
 
-[무료 배포 안내](docs/cloudflare.md)의 Cloudflare 대시보드에서 GitHub 저장소를 연결하는 방법을 사용하면 Codex의 별도 로그인이나 네트워크 설정 없이 배포를 진행할 수 있습니다. 빌드 명령은 `npm run build`, 배포 명령은 `npm run cf:deploy:dashboard`입니다. 대시보드 전용 배포 명령은 연결된 Worker를 확인하고 D1 초기화와 서버 키 준비를 처리하며, 기존 키를 보존합니다. 실제 계정 연결과 원격 배포는 아직 하지 않았습니다.
+[무료 배포·현재 오류 복구](docs/cloudflare.md)의 Cloudflare 대시보드 절차를 사용합니다. 기존 프로젝트는 `money-safe`, 빌드 명령은 `npm run build`, 배포 명령은 `npm run cf:deploy:dashboard`입니다. 기본 `npx wrangler deploy`로는 서버 키와 DB 초기화가 실행되지 않습니다. 대시보드 전용 명령은 기존 키를 유지하며, 데이터와 키가 없는 최초 설치만 안전하게 초기화합니다. Codex의 별도 로그인이나 네트워크 설정 변경 없이 Cloudflare 자체 빌드 서버에서 실행합니다.
 
 아래는 로컬 Cloudflare 런타임을 검증하는 명령입니다. 공개 배포가 아닙니다.
 
@@ -53,6 +53,8 @@ npm run test:e2e
 ```
 
 E2E는 이 환경의 `/usr/bin/chromium`을 사용합니다. 다른 컴퓨터는 `npx playwright install chromium`을 실행하거나 `CHROMIUM_PATH`에 설치된 Chromium 실행 파일을 지정하세요. 테스트 계정과 데이터는 `/tmp`의 분리된 SQLite에 저장됩니다.
+
+공개 앱은 `npm run test:deployed -- --url https://money-safe.ttlikim16.workers.dev`로 검사합니다. 새 임시 계정으로 가입·저장·조회·내보내기·서버 푸시 설정을 확인하고 계정을 삭제합니다. 비밀번호·쿠키·거래 내용은 보고서에 출력하지 않습니다. 이 검사는 실제 iPhone 수신을 검증하지 않습니다.
 
 ## 포함된 기능
 
