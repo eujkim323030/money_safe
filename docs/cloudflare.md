@@ -1,5 +1,7 @@
 # 무료 Cloudflare 배포
 
+2026-10-13 공개 서버 자동 검사([GitHub Actions](https://github.com/eujkim323030/money_safe/actions/runs/38361664194))는 통과했습니다. 임시 계정의 가입·저장·조회·내보내기·서버 푸시 설정과 계정 삭제를 확인했습니다. 사용자의 iPhone 앱에서는 가입 오류를 보고하여 현재 오류 문구를 확인 중이며, 실제 푸시 수신은 미검증입니다.
+
 1. 현재 Cloudflare의 **money-safe → Settings → Build → Build Configuration**을 엽니다.
 2. Build command를 `npm run build`, Deploy command를 `npm run cf:deploy:dashboard`로 저장합니다.
 3. 최신 `main`의 복구 코드가 반영된 빌드에서 **Retry build**를 누릅니다.

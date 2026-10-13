@@ -2,7 +2,7 @@
 
 돈은 지키고, 인생은 즐긴다. iPhone 홈 화면에 설치하는 한국어 PWA와 실제 서버 Web Push 백엔드입니다. Cloudflare 무료 환경용 Workers/D1/Cron 구현과 일반 서버용 Node/SQLite 구현을 제공합니다. 첨부 PRD와 [starter-config.json](shared/starter-config.json)을 사용하며, 첫 실행의 지출·상환·적립 기록은 모두 비어 있습니다. 픽셀 캐릭터는 참고 시안의 파스텔 RPG 분위기를 반영해 앱용 SVG로 제작했습니다.
 
-실제 앱은 [money-safe.ttlikim16.workers.dev](https://money-safe.ttlikim16.workers.dev)에 배포됐고, 사용자가 iPhone 홈 화면 설치 후 로그인 화면을 확인했습니다. 사용자가 대시보드 초기화 완료 로그와 공개 `/api/auth/me`의 `로그인이 필요합니다.` 응답을 확인하여 세션 키 검사 통과를 확인했습니다. **회원가입 재검증과 실제 iPhone 종료 상태의 푸시 수신은 아직 남아 있습니다.** 자동 테스트나 푸시 서비스의 접수 응답을 실기기 수신으로 간주하지 않습니다.
+실제 앱은 [money-safe.ttlikim16.workers.dev](https://money-safe.ttlikim16.workers.dev)에 배포됐고, 사용자가 iPhone 홈 화면 설치 후 로그인 화면을 확인했습니다. 사용자가 대시보드 초기화 완료 로그와 공개 `/api/auth/me`의 `로그인이 필요합니다.` 응답을 확인하여 세션 키 검사 통과를 확인했습니다. [공개 서버 자동 검사](https://github.com/eujkim323030/money_safe/actions/runs/38361664194)에서 임시 계정 가입·저장·조회·내보내기·서버 푸시 설정 및 계정 삭제를 통과했습니다. **사용자의 iPhone 가입 오류 확인과 실제 앱 종료 상태의 푸시 수신은 아직 남아 있습니다.** 자동 테스트나 푸시 서비스의 접수 응답을 실기기 수신으로 간주하지 않습니다.
 
 ## Cloudflare 무료 환경
 
