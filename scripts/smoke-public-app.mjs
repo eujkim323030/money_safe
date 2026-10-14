@@ -187,7 +187,8 @@ export async function runPublicSmoke(options = {}) {
     if (!report.testAccountCleanup) log(`${messages.cleanup_failed} 임시 이메일: ${email}`);
     else if (report.success) log('공개 앱 검증 통과. 임시 계정은 삭제했습니다. 실제 아이폰 알림 수신은 별도 확인이 필요합니다.');
     if (process.env.GITHUB_ACTIONS === 'true') {
-      const summary = report.error ? `${report.error.kind}: ${report.error.message}` : '공개 앱 기능 검사 통과. 임시 계정 삭제 완료. 실제 아이폰 푸시 수신은 별도 확인이 필요합니다.';
+      const failedStep = report.assertions.find(assertion => assertion.status === 'failed')?.name ?? 'cleanup';
+      const summary = report.error ? `${failedStep}: ${report.error.kind}${report.error.httpStatus !== undefined ? ` HTTP ${report.error.httpStatus}` : ''}: ${report.error.message}` : '공개 앱 기능 검사 통과. 사용자 카테고리·아이콘 저장 및 임시 계정 삭제 완료. 실제 아이폰 푸시 수신은 별도 확인이 필요합니다.';
       const escaped = summary.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
       log(`::${report.success ? 'notice' : 'error'} title=Deployed app verification::${escaped}`);
     }
