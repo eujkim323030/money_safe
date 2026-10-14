@@ -27,8 +27,27 @@ export function allocationTotal(config: Config): number {
   return Object.values(a.savings).reduce((s, v) => s + v, 0) + Object.values(a.loanPayments).reduce((s, v) => s + v, 0) + a.fixedExpenses + a.emergencyContribution + a.bigPurchaseContribution + a.variableBudget;
 }
 export const inCycle = (date: string, cycle: SalaryCycle) => date >= cycle.start && date <= cycle.end;
-export function variableSpent(state: AppState, cycle = salaryCycle(new Date(), state.config.salary.cycleStartDay)): number {
-  return state.expenses.filter(e => inCycle(e.date, cycle)).reduce((s, e) => s + e.amount, 0);
+export function activeBudget(state: AppState, now: Date | string = new Date()) {
+  const bridge = state.bridgeBudget, today = kstDate(now);
+  if (bridge && today >= bridge.startDate && today <= bridge.endDate) return { start: bridge.startDate, end: bridge.endDate, key: `bridge:${bridge.id}`, label: '월급 전 예산', budget: bridge.amount, temporary: true };
+  return { ...salaryCycle(now, state.config.salary.cycleStartDay), budget: state.config.allocation.variableBudget, temporary: false };
+}
+export function budgetExpenses(state: AppState, cycle: SalaryCycle = activeBudget(state)) {
+  const excluded = new Set(cycle.key === `bridge:${state.bridgeBudget?.id}` ? state.bridgeBudget?.excludedExpenseIds : []);
+  return state.expenses.filter(expense => inCycle(expense.date, cycle) && !excluded.has(expense.id));
+}
+export function budgetCategories(state: AppState, now: Date | string = new Date()) {
+  const budget = activeBudget(state, now);
+  if (!budget.temporary) return state.config.categories;
+  const total = state.config.categories.reduce((sum, category) => sum + category.budget, 0);
+  let allocated = 0;
+  return state.config.categories.map((category, index, all) => {
+    const amount = index === all.length - 1 ? budget.budget - allocated : Math.floor(total ? category.budget / total * budget.budget : budget.budget / all.length);
+    allocated += amount; return { ...category, budget: amount };
+  });
+}
+export function variableSpent(state: AppState, cycle: SalaryCycle = activeBudget(state)): number {
+  return budgetExpenses(state, cycle).reduce((s, e) => s + e.amount, 0);
 }
 export function loanBalance(state: AppState): number {
   return state.config.bossLoan.currentBalance - state.repayments.filter(r => r.loan === 'boss').reduce((s, r) => s + (r.principal ?? 0), 0);
@@ -42,7 +61,7 @@ export function fundBalance(state: AppState, fund: FundEntry['fund']): number | 
   return balance;
 }
 export function cycleComparison(state: AppState, now: Date | string = new Date()) {
-  const current = salaryCycle(now, state.config.salary.cycleStartDay);
+  const current = activeBudget(state, now);
   const previous = salaryCycle(new Date(new Date(`${current.start}T00:00:00+09:00`).getTime() - DAY), state.config.salary.cycleStartDay);
   return { current: { cycle: current, spent: variableSpent(state, current) }, previous: { cycle: previous, spent: variableSpent(state, previous) } };
 }
@@ -121,6 +140,9 @@ export function validateState(value: unknown): string[] {
     const all = [...state.expenses, ...state.repayments, ...state.fundEntries, ...state.missions];
     check(all.every(e => isText(e.id, 100) && idPattern.test(e.id)) && new Set(all.map(e => e.id)).size === all.length, '기록 ID가 중복되거나 올바르지 않습니다.');
     const today = kstDate();
+    const validExcluded = (ids: unknown) => Array.isArray(ids) && ids.length <= 10_000 && ids.every(id => isText(id, 100) && idPattern.test(id)) && new Set(ids).size === ids.length;
+    const bridge = state.bridgeBudget;
+    check(bridge === undefined || (isObject(bridge) && isText(bridge.id, 100) && idPattern.test(bridge.id) && isMoney(bridge.amount) && bridge.amount > 0 && isDate(bridge.startDate) && bridge.startDate <= today && isDate(bridge.endDate) && bridge.endDate >= bridge.startDate && Date.parse(bridge.endDate) - Date.parse(bridge.startDate) < 31 * DAY && validExcluded(bridge.excludedExpenseIds)), '월급 전 예산의 금액·기간을 확인해 주세요.');
     check(state.expenses.every(e => isMoney(e.amount) && e.amount > 0 && isDate(e.date) && e.date <= today && categoryIds.includes(e.category) && isText(e.note) && isText(e.emotion, 40) && typeof e.createdAt === 'string' && Number.isFinite(Date.parse(e.createdAt))), '지출 금액·날짜·카테고리를 확인해 주세요. 미래 지출은 등록할 수 없습니다.');
     check(state.repayments.every(r => ['boss', 'other'].includes(r.loan) && isDate(r.date) && r.date <= today && isMoney(r.total) && r.total > 0 && isText(r.note) && ((r.loan === 'other' && r.principal === null && r.interest === null) || (isMoney(r.principal) && isMoney(r.interest) && r.total === r.principal + r.interest))), '상환 기록은 원금·이자 합계가 납입액과 같아야 합니다. 미확인 별도 대출은 총액만 기록합니다.');
     check(loanBalance(state) >= 0, '상환 원금 합계가 기록 기준 잔액을 초과합니다.');
@@ -134,6 +156,12 @@ export function validateState(value: unknown): string[] {
         check(balance === null || balance >= 0, '저축 잔액보다 많은 금액을 인출할 수 없습니다.');
       }
     }
+    const goals = state.spendingGoals ?? [], pauses = state.purchasePauses ?? [], reviews = state.spendingReviews ?? [];
+    const timestamp = (value: unknown) => typeof value === 'string' && Number.isFinite(Date.parse(value));
+    const uniqueIds = (items: { id: string }[]) => items.every(item => isText(item.id, 100) && idPattern.test(item.id)) && new Set(items.map(item => item.id)).size === items.length;
+    check(Array.isArray(goals) && goals.length <= 100 && uniqueIds(goals) && goals.every(goal => (goal.categoryId === null || (isText(goal.categoryId, 100) && idPattern.test(goal.categoryId))) && isText(goal.categoryName, 30) && goal.categoryName.trim().length > 0 && isDate(goal.startDate) && goal.startDate <= today && isDate(goal.endDate) && [0, 2, 6].includes((Date.parse(goal.endDate) - Date.parse(goal.startDate)) / DAY) && isMoney(goal.limit) && (goal.excludedExpenseIds === undefined || validExcluded(goal.excludedExpenseIds)) && timestamp(goal.createdAt) && kstDate(goal.createdAt) === goal.startDate), '절약 도전의 기간·항목·목표 금액을 확인해 주세요.');
+    check(Array.isArray(pauses) && pauses.length <= 100 && uniqueIds(pauses) && pauses.every(pause => isText(pause.name, 80) && pause.name.trim().length > 0 && isMoney(pause.amount) && pause.amount > 0 && timestamp(pause.createdAt) && Date.parse(pause.createdAt) <= Date.now() + 60_000 && ((pause.resolution === undefined && pause.resolvedAt === undefined) || (['skipped', 'bought'].includes(pause.resolution ?? '') && timestamp(pause.resolvedAt) && Date.parse(pause.resolvedAt!) <= Date.now() + 60_000 && Date.parse(pause.resolvedAt!) - Date.parse(pause.createdAt) >= (pause.resolution === 'skipped' ? DAY : 0)))), '구매 보류 기록을 확인해 주세요. 24시간이 지나야 안 사기를 확정할 수 있어요.');
+    check(Array.isArray(reviews) && reviews.length <= 10_000 && new Set(reviews.map(review => review.date)).size === reviews.length && reviews.every(review => isDate(review.date) && review.date < today && timestamp(review.reviewedAt) && kstDate(review.reviewedAt) > review.date && Date.parse(review.reviewedAt) <= Date.now() + 60_000), '지출 확인은 지난 날짜만 기록할 수 있어요.');
     check(state.missions.every(m => ['allocation', 'weekly', 'extra', 'emergency'].includes(m.key) && isDate(m.period) && typeof m.completedAt === 'string' && Number.isFinite(Date.parse(m.completedAt))) && new Set(state.missions.map(m => `${m.key}:${m.period}`)).size === state.missions.length, '미션 기록이 올바르지 않거나 중복입니다.');
   } catch { errors.push('필수 설정과 기록 필드가 올바른지 확인해 주세요.'); }
   return [...new Set(errors)];

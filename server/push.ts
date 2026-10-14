@@ -1,3 +1,4 @@
+import { activeBudget, variableSpent } from '../shared/domain.ts';
 import { createCipheriv, createDecipheriv, createECDH, createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Express, RequestHandler } from 'express';
@@ -208,23 +209,15 @@ function localMidnight(date: string): number { const [year, month, day] = localP
 function monthDay(year: number, month: number, day: number): number { return Math.min(day, new Date(Date.UTC(year, month, 0)).getUTCDate()); }
 function paydayDate(year: number, month: number, day: number): string { return new Date(Date.UTC(year, month - 1, monthDay(year, month, day))).toISOString().slice(0, 10); }
 
-function cycleStart(now: number, day: number): string {
-  const date = localDate(now);
-  const [year, month] = localParts(date);
-  const thisStart = paydayDate(year, month, day);
-  if (date >= thisStart) return thisStart;
-  const priorMonth = new Date(Date.UTC(year, month - 2, 1));
-  return paydayDate(priorMonth.getUTCFullYear(), priorMonth.getUTCMonth() + 1, day);
-}
 
 /** Called in the state-write transaction, so a short-lived first crossing cannot be missed by polling. */
 export function enqueueBudgetAlert(database: AppDatabase, userId: string, state: AppState, now = Date.now(), insideTransaction = false): boolean {
-  if (!state.config.push.enabled || state.config.allocation.variableBudget <= 0) return false;
+  const cycle = activeBudget(state, new Date(now));
+  if (!state.config.push.enabled || cycle.budget <= 0) return false;
   if (!database.db.prepare('SELECT id FROM push_subscriptions WHERE user_id=? LIMIT 1').get(userId)) return false;
-  const start = cycleStart(now, state.config.salary.cycleStartDay);
-  const today = localDate(now);
-  const spent = state.expenses.reduce((sum, expense) => sum + (expense.date >= start && expense.date <= today ? expense.amount : 0), 0);
-  if (spent < Math.ceil(state.config.allocation.variableBudget * state.config.push.budgetThreshold)) return false;
+  const start = cycle.key;
+  const spent = variableSpent(state, cycle);
+  if (spent < Math.ceil(cycle.budget * state.config.push.budgetThreshold)) return false;
   return enqueue(database, userId, `budget:${start}`, { title: '생활비 예산을 확인해볼까요?', body: '기록한 지출이 설정한 예산 알림 기준에 도달했어요. 남은 계획을 가볍게 살펴보세요.', url: '/#home' }, now, now + DAY, insideTransaction);
 }
 

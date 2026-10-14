@@ -33,7 +33,7 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
-      - name: Wait for the updated category editor
+      - name: Wait for the updated spending tools
         run: node scripts/verify-deployed-ui.mjs
       - name: Verify public app and delete temporary test account
         run: npm run test:deployed -- --url https://money-safe.ttlikim16.workers.dev

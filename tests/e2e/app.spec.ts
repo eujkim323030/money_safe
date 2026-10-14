@@ -87,6 +87,7 @@ test('actual principal/interest repayment and fund ledgers affect their balances
 });
 test('missions completion/cancellation uses evidence and XP and settings export returns this user only', async ({ page }) => {
   await startAccount(page); await go(page, 'missions');
+  await page.getByText('기본 재무 관리 미션', { exact: true }).click();
   await expect(page.getByRole('button', { name: '비상금 적립 확인 완료', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: '월급 분배 확인 완료', exact: true }).click();
   await expect(page.locator('.level-card')).toContainText('30 XP');
@@ -257,7 +258,7 @@ test('purpose menus and custom category editing preserve old records and sync ne
   await goals.getByRole('button', { name: '대출 상환' }).click();
   await expect(page).toHaveURL(/#loan$/);
   await expect(menu.getByRole('button', { name: '목표', exact: true })).toHaveAttribute('aria-current', 'page');
-  await goals.getByRole('button', { name: '실천 미션' }).click();
+  await goals.getByRole('button', { name: '절약 미션' }).click();
   await expect(page).toHaveURL(/#missions$/);
 });
 
@@ -297,4 +298,75 @@ test('category deletion is staged, cancellable and moves recorded expenses and b
   await go(page, 'expenses');
   await expect(page.locator('.record-row')).toContainText('카페');
   await expect(page.locator('.record-row')).toContainText('삭제해도 보존할 지출');
+});
+
+test('start immediately with a 550000 bridge budget, then save a shopping goal and purchase pause', async ({ page }) => {
+  await startAccount(page); await go(page, 'expenses');
+  await addExpense(page, 8000, '이미 잔액에 반영한 기록');
+  await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  await go(page, 'home');
+  await page.getByRole('button', { name: '월급 전 예산으로 시작', exact: true }).click();
+  await page.getByLabel('지금 쓸 수 있는 돈 (원)').fill('550000');
+  const startDate = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+  const endDate = new Date(Date.parse(startDate) + 10 * 86400000).toISOString().slice(0, 10);
+  await page.getByLabel('이 돈으로 지낼 마지막 날').fill(endDate);
+  await expect(page.locator('.bridge-setup')).toContainText('하루 50,000원');
+  await page.getByRole('button', { name: '이 금액으로 시작하기' }).click();
+  await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  await expect(page.locator('.budget-card .big-number')).toHaveText('550,000원');
+  await go(page, 'expenses'); await addExpense(page, 5000, '새 지출');
+  await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  await go(page, 'home'); await expect(page.locator('.budget-card .big-number')).toHaveText('545,000원');
+  await go(page, 'missions');
+  await page.getByLabel('사고 싶은 물건').fill('세일 운동화');
+  await page.getByLabel('예상 가격 (원)').fill('70000');
+  await page.getByRole('button', { name: '24시간 보류 시작' }).click();
+  await expect(page.locator('.pause-item')).toContainText('세일 운동화');
+  await expect(page.getByRole('button', { name: '안 사기로 했어요', exact: true })).toBeDisabled();
+  await page.getByLabel('줄일 지출').selectOption('shopping');
+  await page.getByLabel('도전 기간').selectOption('3');
+  await page.getByLabel('기간 동안 쓸 최대 금액 (원)').fill('30000');
+  await page.getByRole('button', { name: '절약 도전 시작', exact: true }).click();
+  await expect(page.locator('.saving-goal')).toContainText('쇼핑 예산 지키기');
+  await expect(page.locator('.saving-goal')).toContainText('진행 중');
+  await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  await page.reload();
+  await expect(page.locator('.saving-goal')).toContainText('목표 30,000원');
+  await expect(page.locator('.pause-item')).toContainText('세일 운동화');
+  const saved = await (await page.request.get('/api/state')).json();
+  expect(saved.state.config.salary.monthlyAmount).toBe(3650000);
+  expect(saved.state.config.allocation.variableBudget).toBe(1368000);
+  expect(saved.state.bridgeBudget.amount).toBe(550000);
+  expect(saved.state.bridgeBudget.excludedExpenseIds).toHaveLength(1);
+  expect(saved.state.spendingGoals[0].limit).toBe(30000);
+  expect(saved.state.purchasePauses[0].resolution).toBeUndefined();
+  expect(saved.state.fundEntries).toEqual([]);
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.screenshot({ path: 'test-results/spending-missions.png', fullPage: true });
+});
+
+test('closed savings goals need explicit daily review and a 24-hour pause can then be resolved', async ({ page }) => {
+  await startAccount(page);
+  const current = await (await page.request.get('/api/state')).json();
+  const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+  const yesterday = new Date(Date.parse(today) - 86400000).toISOString().slice(0, 10);
+  current.state.spendingGoals = [{ id: 'goal-yesterday', categoryId: 'shopping', categoryName: '쇼핑', startDate: yesterday, endDate: yesterday, limit: 10000, createdAt: `${yesterday}T00:00:00+09:00` }];
+  current.state.purchasePauses = [{ id: 'pause-yesterday', name: '하루 기다린 가방', amount: 50000, createdAt: new Date(Date.now() - 25 * 3600000).toISOString() }];
+  expect((await page.request.put('/api/state', { headers, data: current })).ok()).toBe(true);
+  await page.reload(); await go(page, 'missions');
+  await expect(page.locator('.saving-goal')).toContainText('기록 확인 필요');
+  await expect(page.locator('.level-card')).toContainText('0 XP');
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: '기록 확인 완료', exact: true }).click();
+  await expect(page.locator('.saving-goal')).toContainText('성공 +40 XP');
+  await page.getByRole('button', { name: '안 사기로 했어요', exact: true }).click();
+  await expect(page.locator('.level-card')).toContainText('60 XP');
+  await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  const saved = await (await page.request.get('/api/state')).json();
+  expect(saved.state.spendingReviews).toHaveLength(1);
+  expect(saved.state.purchasePauses[0].resolution).toBe('skipped');
+  expect(saved.state.expenses).toEqual([]); expect(saved.state.fundEntries).toEqual([]);
 });

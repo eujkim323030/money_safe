@@ -457,3 +457,13 @@ test('test-push throttling survives scheduler replacement and unconfigured route
   await request(unconfigured).post('/api/push/subscribe').send({ subscription: f.device }).expect(503);
   await request(unconfigured).post('/api/push/test').expect(503);
 });
+
+test('temporary budget threshold excludes existing expenses and deduplicates its own 80% alert', context => {
+  const f = fixture(context);
+  f.state.bridgeBudget = { id: 'before-payday', amount: 550000, startDate: '2026-10-13', endDate: '2026-10-24', excludedExpenseIds: ['old'] };
+  f.state.expenses = [{ id: 'old', category: 'food', amount: 900000, date: '2026-10-13', note: '', emotion: '', createdAt: new Date(BASE).toISOString() }];
+  assert.equal(enqueueBudgetAlert(f.database, 'alice', f.state, BASE), false);
+  f.state.expenses.push({ ...f.state.expenses[0], id: 'new', amount: 440000 });
+  assert.equal(enqueueBudgetAlert(f.database, 'alice', f.state, BASE), true);
+  assert.equal(enqueueBudgetAlert(f.database, 'alice', f.state, BASE), false);
+});

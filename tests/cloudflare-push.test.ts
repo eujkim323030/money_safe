@@ -353,3 +353,16 @@ test('bounded scheduling rotates fairly through enabled users while disabled use
   }
   assert.equal(await count(f.db, 'users', "WHERE id LIKE 'disabled-%' AND push_checked_at=0"), 3);
 });
+
+test('D1 budget alert uses the temporary balance and skips expenses already included in that balance', async context => {
+  const f = await fixture(context);
+  f.state.bridgeBudget = { id: 'bridge', amount: 550000, startDate: '2026-10-13', endDate: '2026-10-24', excludedExpenseIds: ['old'] };
+  f.state.expenses = [{ id: 'old', category: 'shopping', amount: 900000, date: '2026-10-13', note: '', emotion: '', createdAt: new Date(BASE).toISOString() }];
+  assert.deepEqual(await budgetAlertStatements(f.db, 'alice', f.state, BASE), []);
+  f.state.expenses.push({ ...f.state.expenses[0], id: 'new', amount: 440000 });
+  await save(f.db, 'alice', f.state);
+  await f.db.batch(await budgetAlertStatements(f.db, 'alice', f.state, BASE));
+  await f.db.batch(await budgetAlertStatements(f.db, 'alice', f.state, BASE));
+  assert.equal(await count(f.db, 'push_events'), 1);
+  assert.equal((await f.db.prepare('SELECT event_key FROM push_events').first<{ event_key: string }>())!.event_key, 'budget:bridge:bridge');
+});

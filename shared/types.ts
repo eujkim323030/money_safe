@@ -24,9 +24,16 @@ export interface Expense { id: string; amount: number; date: string; category: C
 export interface Repayment { id: string; loan: 'boss' | 'other'; date: string; total: number; principal: number | null; interest: number | null; note: string }
 export interface FundEntry { id: string; fund: 'emergency' | 'bigPurchase'; kind: 'deposit' | 'withdraw' | 'adjust'; amount: number; date: string; note: string }
 export interface MissionCompletion { id: string; key: string; period: string; completedAt: string }
+export interface SpendingGoal { id: string; categoryId: string | null; categoryName: string; startDate: string; endDate: string; limit: number; createdAt: string; excludedExpenseIds?: string[] }
+export interface PurchasePause { id: string; name: string; amount: number; createdAt: string; resolution?: 'skipped' | 'bought'; resolvedAt?: string }
+export interface SpendingReview { date: string; reviewedAt: string }
 export interface AppState {
   config: Config; expenses: Expense[]; repayments: Repayment[]; fundEntries: FundEntry[]; missions: MissionCompletion[];
   preferences: { effects: boolean; sound: boolean; nagIntensity: 'gentle' | 'normal' | 'firm' };
+  spendingGoals?: SpendingGoal[];
+  purchasePauses?: PurchasePause[];
+  spendingReviews?: SpendingReview[];
+  bridgeBudget?: { id: string; amount: number; startDate: string; endDate: string; excludedExpenseIds: string[] };
 }
 export interface User { id: string; email: string }
 export interface StateResponse { state: AppState; revision: number }

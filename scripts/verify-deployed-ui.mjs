@@ -1,4 +1,4 @@
-// Read-only readiness check: wait for the category deletion UI to reach the public site.
+// Read-only readiness check: wait for the spending missions and temporary budget UI to reach the public site.
 const origin = new URL(process.argv[2] ?? 'https://money-safe.ttlikim16.workers.dev').origin;
 let ready = false;
 for (let attempt = 0; attempt < 12; attempt++) {
@@ -14,14 +14,14 @@ for (let attempt = 0; attempt < 12; attempt++) {
       const asset = await fetch(url, { ...options, signal: AbortSignal.timeout(10_000) });
       if (!asset.ok) continue;
       const text = await asset.text();
-      if (text.includes('카테고리 삭제') && text.includes('옮기고 삭제')) ready = true;
+      if (text.includes('카테고리 삭제') && text.includes('24시간 보류 시작') && text.includes('월급 전 예산으로 시작')) ready = true;
     }
     if (ready) break;
   } catch { /* A Git-triggered deployment may still be updating its assets. */ }
   if (attempt < 11) await new Promise(resolve => setTimeout(resolve, 5_000));
 }
-if (ready) console.log('::notice title=Deployed category editor::카테고리 삭제 화면의 공개 배포를 확인했습니다.');
+if (ready) console.log('::notice title=Deployed spending tools::절약 미션·월급 전 예산 화면의 공개 배포를 확인했습니다.');
 else {
-  console.error('::error title=Deployed category editor::새 카테고리 삭제 화면의 배포를 확인하지 못했습니다. Cloudflare 빌드 결과를 확인해 주세요.');
+  console.error('::error title=Deployed spending tools::새 절약 미션·월급 전 예산 화면의 배포를 확인하지 못했습니다. Cloudflare 빌드 결과를 확인해 주세요.');
   process.exitCode = 1;
 }

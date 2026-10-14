@@ -1,5 +1,5 @@
 import type { D1Database, D1PreparedStatement } from '@cloudflare/workers-types';
-import { kstDate, salaryCycle, variableSpent } from '../shared/domain.ts';
+import { kstDate, activeBudget, variableSpent } from '../shared/domain.ts';
 import type { AppState, Config, NotificationPayload, User } from '../shared/types.ts';
 import type { Env } from './types.ts';
 
@@ -168,9 +168,9 @@ export async function eventStatements(db: D1Database, userId: string, key: strin
 }
 
 export async function budgetAlertStatements(db: D1Database, userId: string, state: AppState, now: number, writeId?: string): Promise<D1PreparedStatement[]> {
-  if (!state.config.push.enabled || state.config.allocation.variableBudget <= 0) return [];
-  const cycle = salaryCycle(new Date(now), state.config.salary.cycleStartDay);
-  if (variableSpent(state, cycle) < Math.ceil(state.config.allocation.variableBudget * state.config.push.budgetThreshold)) return [];
+  const cycle = activeBudget(state, new Date(now));
+  if (!state.config.push.enabled || cycle.budget <= 0) return [];
+  if (variableSpent(state, cycle) < Math.ceil(cycle.budget * state.config.push.budgetThreshold)) return [];
   return eventStatements(db, userId, `budget:${cycle.key}`, { title: '생활비 예산을 확인해볼까요?', body: '기록한 지출이 설정한 예산 알림 기준에 도달했어요. 남은 계획을 가볍게 살펴보세요.', url: '/#home' }, now, now + DAY, writeId);
 }
 
