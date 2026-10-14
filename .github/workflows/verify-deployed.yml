@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/verify-deployed.yml'
       - 'scripts/smoke-public-app.mjs'
+      - 'scripts/verify-deployed-ui.mjs'
       - 'scripts/cloudflare-dashboard-deploy.mjs'
       - 'cloudflare/**'
       - 'shared/**'
@@ -32,6 +33,8 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
+      - name: Wait for the updated category editor
+        run: node scripts/verify-deployed-ui.mjs
       - name: Verify public app and delete temporary test account
         run: npm run test:deployed -- --url https://money-safe.ttlikim16.workers.dev
       - name: Save safe verification report
