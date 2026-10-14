@@ -1,3 +1,4 @@
+import { isRegular, categoryBudget } from './regular-expenses';
 import { fundNames, initialFundBalance } from './savings';
 import { CATEGORY_ICONS, MAX_CATEGORIES } from './categories';
 import starter from './starter-config.json';
@@ -35,14 +36,16 @@ export function activeBudget(state: AppState, now: Date | string = new Date()) {
 }
 export function budgetExpenses(state: AppState, cycle: SalaryCycle = activeBudget(state)) {
   const excluded = new Set(cycle.key === `bridge:${state.bridgeBudget?.id}` ? state.bridgeBudget?.excludedExpenseIds : []);
-  return state.expenses.filter(expense => inCycle(expense.date, cycle) && !excluded.has(expense.id));
+  const regularIds = new Set(state.config.categories.filter(isRegular).map(category => category.id));
+  return state.expenses.filter(expense => !regularIds.has(expense.category) && inCycle(expense.date, cycle) && !excluded.has(expense.id));
 }
 export function budgetCategories(state: AppState, now: Date | string = new Date()) {
   const budget = activeBudget(state, now);
-  if (!budget.temporary) return state.config.categories;
-  const total = state.config.categories.reduce((sum, category) => sum + category.budget, 0);
+  const categories = state.config.categories.filter(category => !isRegular(category));
+  if (!budget.temporary) return categories;
+  const total = categories.reduce((sum, category) => sum + category.budget, 0);
   let allocated = 0;
-  return state.config.categories.map((category, index, all) => {
+  return categories.map((category, index, all) => {
     const amount = index === all.length - 1 ? budget.budget - allocated : Math.floor(total ? category.budget / total * budget.budget : budget.budget / all.length);
     allocated += amount; return { ...category, budget: amount };
   });
@@ -120,11 +123,13 @@ export function validateState(value: unknown): string[] {
     check(amounts.every(isMoney), '배분 금액은 0 이상의 정수 원화입니다.');
     check(Object.keys(a.savings).length === 3 && Object.keys(a.loanPayments).length === 3, '지원하지 않는 배분 항목입니다.');
     check(allocationTotal(c) === c.salary.monthlyAmount, '월급 배분 합계가 월급과 같아야 합니다.');
-    const validCategories = Array.isArray(c.categories) && c.categories.length >= 1 && c.categories.length <= MAX_CATEGORIES && c.categories.every(x => isObject(x) && isText(x.id, 100) && idPattern.test(x.id) && isMoney(x.budget) && isText(x.name, 30) && x.name.trim().length > 0 && (x.icon === undefined || CATEGORY_ICONS.some(icon => icon.id === x.icon))) && new Set(c.categories.map(x => x.id)).size === c.categories.length;
+    const validCategories = Array.isArray(c.categories) && c.categories.length >= 1 && c.categories.length <= MAX_CATEGORIES && c.categories.every(x => isObject(x) && isText(x.id, 100) && idPattern.test(x.id) && isMoney(x.budget) && isText(x.name, 30) && x.name.trim().length > 0 && (x.kind === undefined || ['regular', 'variable'].includes(x.kind)) && (x.icon === undefined || CATEGORY_ICONS.some(icon => icon.id === x.icon))) && new Set(c.categories.map(x => x.id)).size === c.categories.length;
     check(validCategories, `카테고리는 1~${MAX_CATEGORIES}개로, 이름·아이콘·예산을 확인해 주세요.`);
     if (!validCategories) return errors;
     const categoryIds = c.categories.map(x => x.id);
-    check(c.categories.reduce((s, x) => s + x.budget, 0) === a.variableBudget, '카테고리 합계가 생활비 예산과 같아야 합니다.');
+    check(categoryBudget(c.categories, 'variable') === a.variableBudget, '비정기 카테고리 합계가 생활비 예산과 같아야 합니다.');
+    check(categoryBudget(c.categories, 'regular') <= a.fixedExpenses, '정기 카테고리 합계가 정기지출 예산을 초과합니다.');
+    check(c.categories.some(category => !isRegular(category)), '비정기 생활비 카테고리를 한 개 이상 남겨 주세요.');
     const b = c.bossLoan;
     check([b.initialBalance, b.currentBalance, b.regularPayment, b.extraPrincipalGoal].every(isMoney) && b.initialBalance > 0, '대출 금액을 확인해 주세요.');
     check(Number.isFinite(b.annualInterestRate) && b.annualInterestRate >= 0 && b.annualInterestRate <= 1 && Number.isFinite(b.prepaymentFeeRate) && b.prepaymentFeeRate >= 0 && b.prepaymentFeeRate <= 1 && isText(b.repaymentType, 80), '대출 금리·상환방식을 확인해 주세요.');

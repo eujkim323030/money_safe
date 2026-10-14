@@ -1,3 +1,4 @@
+import { isRegular } from '../shared/regular-expenses';
 import { useState } from 'react';
 import { CATEGORY_ICONS, MAX_CATEGORIES, categoryArt } from '../shared/categories';
 import type { Category, Expense } from '../shared/types';
@@ -24,6 +25,10 @@ export default function CategoryEditor({ categories, expenses, onChange, onDelet
           <label className="field">이름<input aria-label={`카테고리 ${index + 1} 이름`} required maxLength={30} value={category.name} onChange={event => edit(category.id, { name: event.target.value })} /></label>
           <label className="field">예산 (원)<input aria-label={`카테고리 ${index + 1} 예산`} type="number" inputMode="numeric" required min={0} step={1} value={category.budget} onChange={event => edit(category.id, { budget: Number(event.target.value) })} /></label>
         </div>
+        <div className="category-kind" role="group" aria-label={`${category.name} 지출 구분`}>
+          <button type="button" aria-pressed={!isRegular(category)} onClick={() => edit(category.id, { kind: 'variable' })}>비정기</button>
+          <button type="button" aria-pressed={isRegular(category)} onClick={() => edit(category.id, { kind: 'regular' })}>정기</button>
+        </div>
         {editingIcon === category.id && <fieldset className="category-art-picker"><legend>{category.name} 아이콘</legend>{CATEGORY_ICONS.map(icon => <button type="button" key={icon.id} aria-label={icon.name} aria-pressed={art.id === icon.id} onClick={() => { edit(category.id, { icon: icon.id }); setEditingIcon(null); }}><span className="category-art" style={{ backgroundColor: icon.color }}>{icon.symbol}</span><small>{icon.name}</small></button>)}</fieldset>}
         <button type="button" className="text-button danger category-delete-button" disabled={categories.length < 2} aria-label={`${category.name} 카테고리 삭제`} onClick={() => { setDeleting(category.id); setDestination(''); }}>{categories.length < 2 ? '마지막 카테고리는 유지해요' : '카테고리 삭제'}</button>
         {deleting === category.id && <div className="category-delete-panel" role="group" aria-label={`${category.name} 삭제 확인`}>
@@ -35,6 +40,6 @@ export default function CategoryEditor({ categories, expenses, onChange, onDelet
       </div>;
     })}
     <button type="button" className="button wide" disabled={categories.length >= MAX_CATEGORIES} onClick={add}>＋ 카테고리 추가 ({categories.length}/{MAX_CATEGORIES})</button>
-    <p className="fine-print">변경 후 아래 저장 버튼을 눌러 주세요. 이름을 바꿔도 기존 지출 기록은 연결된 채로 유지돼요.</p>
+    <p className="fine-print">정기는 매달 예상하는 지출이며 금액이 꼭 같을 필요는 없어요. 구분을 바꾸면 기존 기록도 새 구분으로 집계돼요. 변경 후 아래 저장 버튼을 눌러 주세요. 이름을 바꿔도 기존 지출 기록은 연결된 채로 유지돼요.</p>
   </div>;
 }

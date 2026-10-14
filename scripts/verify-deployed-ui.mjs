@@ -14,14 +14,14 @@ for (let attempt = 0; attempt < 12; attempt++) {
       const asset = await fetch(url, { ...options, signal: AbortSignal.timeout(10_000) });
       if (!asset.ok) continue;
       const text = await asset.text();
-      if (text.includes('저축 계좌 잔액 저장') && text.includes('오늘의 절약 미션') && text.includes('소비 몹을 막아라!') && text.includes('오늘 기록한 소비') && text.includes('24시간 보류 시작') && text.includes('월급 전 예산으로 시작')) ready = true;
+      if (text.includes('저축 계좌 잔액 저장') && text.includes('오늘의 절약 미션') && text.includes('소비 몹을 막아라!') && text.includes('정기지출 6개 불러오기') && text.includes('오늘 비정기 소비') && text.includes('24시간 보류 시작') && text.includes('월급 전 예산으로 시작')) ready = true;
     }
     if (ready) break;
   } catch { /* A Git-triggered deployment may still be updating its assets. */ }
   if (attempt < 11) await new Promise(resolve => setTimeout(resolve, 5_000));
 }
-if (ready) console.log('::notice title=Deployed spending tools::소비 전용 첫 화면·월급 분배 저축 화면의 공개 배포를 확인했습니다.');
+if (ready) console.log('::notice title=Deployed spending tools::정기·비정기 카테고리 화면의 공개 배포를 확인했습니다.');
 else {
-  console.error('::error title=Deployed spending tools::새 소비 전용 첫 화면·월급 분배 저축 화면의 배포를 확인하지 못했습니다. Cloudflare 빌드 결과를 확인해 주세요.');
+  console.error('::error title=Deployed spending tools::새 정기·비정기 카테고리 화면의 배포를 확인하지 못했습니다. Cloudflare 빌드 결과를 확인해 주세요.');
   process.exitCode = 1;
 }

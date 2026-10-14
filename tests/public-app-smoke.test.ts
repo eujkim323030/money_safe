@@ -170,7 +170,7 @@ test('public smoke exercises the production app and deletes its account, state, 
   assert.equal(observed.registrationSecureCookie, true);
   assert.equal(observed.seededPushRows, true);
   assert.deepEqual(observed.initialState, createInitialState());
-  assert.equal(observed.savedState?.expenses.length, 1);
+  assert.equal(observed.savedState?.expenses.length, 2);
   assert.equal(observed.savedState?.expenses[0].amount, 1_000);
   assert.deepEqual(observed.exportedState, observed.savedState);
   const mutationRequests = fixture.requests.filter(({ method }) => method !== 'GET');

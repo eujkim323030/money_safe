@@ -1,3 +1,4 @@
+import { isRegular } from '../shared/regular-expenses';
 import { useEffect, useState, type FormEvent } from 'react';
 import type { AppState } from '../shared/types';
 import { kstDate } from '../shared/domain';
@@ -9,9 +10,9 @@ const money = (amount: number) => `${amount.toLocaleString('ko-KR')}원`;
 const DAY = 86_400_000;
 export default function SpendingMissions({ state, mutate, toast, onRecord }: Props) {
   const [now, setNow] = useState(() => new Date());
-  const [category, setCategory] = useState(() => state.config.categories.find(item => item.id === 'shopping' || item.icon === 'shopping')?.id ?? '');
+  const [category, setCategory] = useState(() => state.config.categories.find(item => !isRegular(item) && (item.id === 'shopping' || item.icon === 'shopping'))?.id ?? '');
   const [days, setDays] = useState(3);
-  const [limit, setLimit] = useState(() => suggestedGoalLimit(state, state.config.categories.find(item => item.id === 'shopping' || item.icon === 'shopping')?.id ?? null, 3));
+  const [limit, setLimit] = useState(() => suggestedGoalLimit(state, state.config.categories.find(item => !isRegular(item) && (item.id === 'shopping' || item.icon === 'shopping'))?.id ?? null, 3));
   const [error, setError] = useState('');
   useEffect(() => {
     const refresh = () => setNow(new Date()); const timer = setInterval(refresh, 30_000);
@@ -54,7 +55,7 @@ export default function SpendingMissions({ state, mutate, toast, onRecord }: Pro
       <p className="fine-print">보류한 물건의 가격은 실제 절약액이나 저축 잔액에 더하지 않아요. 앱을 닫아도 대기 시간은 이어져요.</p>
     </section>
     <section className="card goal-builder"><span className="pill mint">작게 시작하는 절약 · 성공 시 +40 XP</span><h2>쇼핑부터, 예산 안에서</h2><p>줄이고 싶은 항목 하나를 골라요. 시작 뒤 새로 기록한 지출을 기준으로 해요. 목표는 도중에 자동으로 늘어나지 않아요.</p>
-      <form onSubmit={startGoal}><div className="field-grid"><label className="field">줄일 지출<select value={category} onChange={event => recommend(event.target.value, days)}><option value="">전체 생활비</option>{state.config.categories.map(item => <option key={item.id} value={item.id}>{categoryArt(item).symbol} {item.name}</option>)}</select></label><label className="field">도전 기간<select value={days} onChange={event => recommend(category, Number(event.target.value))}><option value={1}>오늘 하루</option><option value={3}>3일</option><option value={7}>7일</option></select></label></div><label className="field">기간 동안 쓸 최대 금액 (원)<input type="number" inputMode="numeric" required min={0} max={100_000_000_000} step={1} value={limit} onChange={event => setLimit(Number(event.target.value))} /></label><p className="fine-print">추천값은 현재 적용 중인 예산의 남은 금액을 남은 일수로 나눈 뒤, 도전 일수만큼 잡아 10% 낮춘 금액이에요. 새 급여 주기의 예산은 미리 포함하지 않아요. 내 상황에 맞게 바꿔도 괜찮아요.</p><button className="button primary wide" disabled={activeGoals.length >= 3 || goals.length >= 100}>절약 도전 시작</button></form>
+      <form onSubmit={startGoal}><div className="field-grid"><label className="field">줄일 지출<select value={category} onChange={event => recommend(event.target.value, days)}><option value="">전체 생활비</option>{state.config.categories.filter(item => !isRegular(item)).map(item => <option key={item.id} value={item.id}>{categoryArt(item).symbol} {item.name}</option>)}</select></label><label className="field">도전 기간<select value={days} onChange={event => recommend(category, Number(event.target.value))}><option value={1}>오늘 하루</option><option value={3}>3일</option><option value={7}>7일</option></select></label></div><label className="field">기간 동안 쓸 최대 금액 (원)<input type="number" inputMode="numeric" required min={0} max={100_000_000_000} step={1} value={limit} onChange={event => setLimit(Number(event.target.value))} /></label><p className="fine-print">추천값은 현재 적용 중인 예산의 남은 금액을 남은 일수로 나눈 뒤, 도전 일수만큼 잡아 10% 낮춘 금액이에요. 새 급여 주기의 예산은 미리 포함하지 않아요. 내 상황에 맞게 바꿔도 괜찮아요.</p><button className="button primary wide" disabled={activeGoals.length >= 3 || goals.length >= 100}>절약 도전 시작</button></form>
     </section>
     {error && <p className="form-error" role="alert">{error}</p>}
     {goals.length > 0 && <div className="section-heading spaced"><h2>내 절약 도전</h2><button className="text-button" onClick={onRecord}>지출 기록 →</button></div>}

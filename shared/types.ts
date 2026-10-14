@@ -1,5 +1,5 @@
 export type CategoryId = string;
-export interface Category { id: CategoryId; name: string; budget: number; icon?: string }
+export interface Category { id: CategoryId; name: string; budget: number; icon?: string; kind?: 'regular' | 'variable' }
 export interface Config {
   app: { name: string; locale: string; timezone: string; currency: string; theme: string };
   salary: { monthlyAmount: number; payday: number; cycleStartDay: number };

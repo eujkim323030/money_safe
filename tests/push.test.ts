@@ -467,3 +467,12 @@ test('temporary budget threshold excludes existing expenses and deduplicates its
   assert.equal(enqueueBudgetAlert(f.database, 'alice', f.state, BASE), true);
   assert.equal(enqueueBudgetAlert(f.database, 'alice', f.state, BASE), false);
 });
+
+test('recurring payments never trigger the variable budget threshold notification', context => {
+  const f = fixture(context);
+  f.state.config.categories.push({ id: 'regular', name: '정기지출', budget: 0, kind: 'regular' });
+  f.state.expenses = [{ id: 'bill', category: 'regular', amount: 1500000, date: '2026-10-13', note: '', emotion: '', createdAt: new Date(BASE).toISOString() }];
+  assert.equal(enqueueBudgetAlert(f.database, 'alice', f.state, BASE), false);
+  f.state.expenses.push({ ...f.state.expenses[0], id: 'living', category: 'food', amount: 1094400 });
+  assert.equal(enqueueBudgetAlert(f.database, 'alice', f.state, BASE), true);
+});

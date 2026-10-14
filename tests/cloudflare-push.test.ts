@@ -366,3 +366,14 @@ test('D1 budget alert uses the temporary balance and skips expenses already incl
   assert.equal(await count(f.db, 'push_events'), 1);
   assert.equal((await f.db.prepare('SELECT event_key FROM push_events').first<{ event_key: string }>())!.event_key, 'budget:bridge:bridge');
 });
+
+test('D1 budget alerts exclude recurring payments from the variable threshold', async context => {
+  const f = await fixture(context);
+  f.state.config.categories.push({ id: 'regular', name: '정기지출', budget: 0, kind: 'regular' });
+  f.state.expenses = [{ id: 'bill', category: 'regular', amount: 1500000, date: '2026-10-13', note: '', emotion: '', createdAt: new Date(BASE).toISOString() }];
+  assert.deepEqual(await budgetAlertStatements(f.db, 'alice', f.state, BASE), []);
+  f.state.expenses.push({ ...f.state.expenses[0], id: 'living', category: 'food', amount: 1094400 });
+  await save(f.db, 'alice', f.state);
+  await f.db.batch(await budgetAlertStatements(f.db, 'alice', f.state, BASE));
+  assert.equal(await count(f.db, 'push_events'), 1);
+});

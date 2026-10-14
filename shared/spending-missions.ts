@@ -1,3 +1,4 @@
+import { isRegular } from './regular-expenses';
 import { kstDate, activeBudget, budgetCategories, budgetExpenses } from './domain';
 import type { AppState, SpendingGoal } from './types';
 
@@ -13,11 +14,11 @@ export function goalDates(goal: SpendingGoal): string[] {
 export function spendingGoalProgress(state: AppState, goal: SpendingGoal, now = new Date()) {
   const today = kstDate(now);
   const excluded = new Set(goal.excludedExpenseIds ?? []);
-  const spent = state.expenses.filter(expense => !excluded.has(expense.id) && expense.date >= goal.startDate && expense.date <= goal.endDate && (goal.categoryId === null || expense.category === goal.categoryId)).reduce((sum, expense) => sum + expense.amount, 0);
+  const spent = state.expenses.filter(expense => !isRegular(state.config.categories.find(category => category.id === expense.category)) && !excluded.has(expense.id) && expense.date >= goal.startDate && expense.date <= goal.endDate && (goal.categoryId === null || expense.category === goal.categoryId)).reduce((sum, expense) => sum + expense.amount, 0);
   const dates = goalDates(goal);
   const reviewed = new Set((state.spendingReviews ?? []).map(review => review.date));
   const missingDates = dates.filter(date => !reviewed.has(date));
-  const available = goal.categoryId === null || state.config.categories.some(category => category.id === goal.categoryId);
+  const available = goal.categoryId === null || state.config.categories.some(category => category.id === goal.categoryId && !isRegular(category));
   const ended = today > goal.endDate;
   const complete = available && ended && missingDates.length === 0 && spent <= goal.limit;
   const remaining = Math.max(0, goal.limit - spent);
