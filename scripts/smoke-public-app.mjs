@@ -146,10 +146,19 @@ export async function runPublicSmoke(options = {}) {
     });
     const state = initial.data.state;
     const expenseId = randomUUID();
-    state.expenses.push({ id: expenseId, amount: 1000, date: new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10), category: 'food', note: '자동 검증용 임시 기록', emotion: '', createdAt: new Date().toISOString() });
+    const categoryId = `custom_${randomUUID()}`;
+    state.config.categories[0].name = '집밥·외식';
+    state.config.categories.push({ id: categoryId, name: '교통비', budget: 0, icon: 'transport' });
+    state.expenses.push({ id: expenseId, amount: 1000, date: new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10), category: categoryId, note: '자동 검증용 임시 기록', emotion: '', createdAt: new Date().toISOString() });
     const saved = await check('state_cas_write', async () => {
       const value = await get('/api/state', { userId: user.id, state, revision: initial.data.revision }, 'PUT');
       ensure(value.data?.revision === initial.data.revision + 1 && value.data?.state?.expenses?.some(expense => expense.id === expenseId && expense.amount === 1000)); return value;
+    });
+    await check('custom_category_and_icon', async () => {
+      const value = await get('/api/state');
+      ensure(value.data?.state?.config?.categories?.some(category => category.id === categoryId && category.name === '교통비' && category.icon === 'transport'));
+      ensure(value.data.state.config.categories[0].name === '집밥·외식' && value.data.state.expenses.some(expense => expense.id === expenseId && expense.category === categoryId));
+      return value;
     });
     await check('persisted_state', async () => { const value = await get('/api/state'); ensure(value.data?.revision === saved.data.revision && JSON.stringify(value.data.state) === JSON.stringify(saved.data.state)); return value; });
     await check('authenticated_export', async () => { const value = await get('/api/export'); ensure(value.data?.user?.id === user.id && value.data.revision === saved.data.revision && JSON.stringify(value.data.state) === JSON.stringify(saved.data.state)); return value; });
