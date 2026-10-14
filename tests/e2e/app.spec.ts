@@ -30,8 +30,11 @@ test('Korean signup and mobile pixel home show only true starter balances with n
   await page.getByRole('button', { name: '내 수비대 시작하기 →' }).click();
   await expect(page.locator('.budget-card .big-number')).toHaveText('1,368,000원');
   await expect(page.locator('.budget-card')).toContainText('기록한 지출 0원');
-  await expect(page.locator('.status-grid')).toContainText('5,000,000원');
-  await expect(page.locator('.status-grid')).toContainText('잔액 확인이 필요해요');
+  await expect(page.getByRole('heading', { name: '소비 몹을 막아라!' })).toBeVisible();
+  await expect(page.locator('#main-content')).not.toContainText('대출');
+  await expect(page.locator('#main-content')).not.toContainText('비상금');
+  await expect(page.locator('#main-content')).not.toContainText('큰 지출 준비금');
+  await expect(page.locator('.consumption-daily')).toContainText('오늘 기록한 소비0원');
   for (const width of [320, 375, 390]) {
     await page.setViewportSize({ width, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -314,9 +317,13 @@ test('start immediately with a 550000 bridge budget, then save a shopping goal a
   await page.getByRole('button', { name: '이 금액으로 시작하기' }).click();
   await expect(page.locator('.sync-badge')).toContainText('동기화됨');
   await expect(page.locator('.budget-card .big-number')).toHaveText('550,000원');
+  await expect(page.locator('.consumption-daily')).toContainText('오늘 기록한 소비8,000원');
+  await expect(page.locator('.consumption-daily')).toContainText('남은 하루 평균50,000원');
   await go(page, 'expenses'); await addExpense(page, 5000, '새 지출');
   await expect(page.locator('.sync-badge')).toContainText('동기화됨');
   await go(page, 'home'); await expect(page.locator('.budget-card .big-number')).toHaveText('545,000원');
+  await expect(page.locator('.consumption-daily')).toContainText('오늘 기록한 소비13,000원');
+  await expect(page.locator('.consumption-daily')).toContainText('남은 하루 평균49,545원');
   await go(page, 'missions');
   await page.getByLabel('사고 싶은 물건').fill('세일 운동화');
   await page.getByLabel('예상 가격 (원)').fill('70000');
@@ -413,6 +420,6 @@ test('missions are reachable from home and primary navigation, linked savings pr
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
   await page.screenshot({ path: 'test-results/linked-savings.png', fullPage: true });
-  await menu.getByRole('button', { name: '홈', exact: true }).click();
+  await menu.getByRole('button', { name: '소비', exact: true }).click();
   await expect(page.locator('.budget-card .big-number')).toHaveText('1,368,000원');
 });
