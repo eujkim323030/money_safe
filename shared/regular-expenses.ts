@@ -48,3 +48,19 @@ export function applyRegularPreset(config: Config): Config {
   next.allocation.fixedExpenses = regular; next.allocation.variableBudget = variable;
   return next;
 }
+
+export function balanceSpendingPlan(config: Config): Config {
+  const next = structuredClone(config), allocation = next.allocation;
+  const available = next.salary.monthlyAmount - Object.values(allocation.savings).reduce((sum, value) => sum + value, 0) - Object.values(allocation.loanPayments).reduce((sum, value) => sum + value, 0) - allocation.fixedExpenses - allocation.emergencyContribution - allocation.bigPurchaseContribution;
+  if (!Number.isSafeInteger(available) || available < 0) throw new Error('저축·상환·정기지출 계획이 월급보다 커요. 해당 금액을 먼저 줄여 주세요.');
+  const categories = next.categories.filter(category => !isRegular(category));
+  if (!categories.length || categories.some(category => !Number.isSafeInteger(category.budget) || category.budget < 0)) throw new Error('비정기 카테고리 예산을 먼저 확인해 주세요.');
+  const total = categoryBudget(categories, 'variable'), difference = available - total;
+  const other = categories.find(category => category.id === 'other');
+  if (other && other.budget + difference >= 0) other.budget += difference;
+  else {
+    let allocated = 0;
+    categories.forEach((category, index) => { const value = index === categories.length - 1 ? available - allocated : Math.floor(total ? category.budget / total * available : available / categories.length); category.budget = value; allocated += value; });
+  }
+  allocation.variableBudget = available; return next;
+}

@@ -33,7 +33,7 @@ export interface AppState {
   spendingGoals?: SpendingGoal[];
   purchasePauses?: PurchasePause[];
   spendingReviews?: SpendingReview[];
-  bridgeBudget?: { id: string; amount: number; startDate: string; endDate: string; excludedExpenseIds: string[] };
+  bridgeBudget?: { id: string; amount: number; startDate: string; endDate: string; excludedExpenseIds: string[]; cashScope?: 'living' | 'shared'; regularReserve?: number };
 }
 export interface User { id: string; email: string }
 export interface StateResponse { state: AppState; revision: number }

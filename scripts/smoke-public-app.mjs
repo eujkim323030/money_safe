@@ -154,7 +154,7 @@ export async function runPublicSmoke(options = {}) {
     const plusDays = count => new Date(Date.parse(missionDate) + count * 86_400_000).toISOString().slice(0, 10);
     state.config.categories.push({ id: 'regular_smoke', name: '정기 교통', budget: 0, icon: 'transport', kind: 'regular' });
     state.expenses.push({ id: randomUUID(), category: 'regular_smoke', amount: 1234, date: missionDate, note: '자동 검증용 정기지출', emotion: '', createdAt: missionNow.toISOString() });
-    state.bridgeBudget = { id: randomUUID(), amount: 550000, startDate: missionDate, endDate: plusDays(10), excludedExpenseIds: [] };
+    state.bridgeBudget = { id: randomUUID(), amount: 550000, cashScope: 'shared', regularReserve: 57000, startDate: missionDate, endDate: plusDays(10), excludedExpenseIds: [] };
     state.spendingGoals = [{ id: randomUUID(), categoryId, categoryName: '교통비', startDate: missionDate, endDate: plusDays(2), limit: 5000, createdAt: missionNow.toISOString(), excludedExpenseIds: [] }];
     state.purchasePauses = [{ id: randomUUID(), name: '자동 검증용 구매 보류', amount: 50000, createdAt: missionNow.toISOString() }];
     state.fundEntries = [{ id: randomUUID(), fund: 'youth', kind: 'adjust', amount: 2000000, date: missionDate, note: '자동 검증용 잔액' }, { id: randomUUID(), fund: 'nonghyup', kind: 'adjust', amount: 2700000, date: missionDate, note: '자동 검증용 잔액' }, { id: randomUUID(), fund: 'travel', kind: 'adjust', amount: 0, date: missionDate, note: '자동 검증용 잔액' }, { id: randomUUID(), fund: 'youth', kind: 'deposit', amount: 500000, date: missionDate, note: '자동 검증용 적립' }];
@@ -170,7 +170,7 @@ export async function runPublicSmoke(options = {}) {
     });
     await check('bridge_budget_and_spending_missions', async () => {
       const value = await get('/api/state');
-      ensure(value.data?.state?.bridgeBudget?.amount === 550000 && value.data.state.bridgeBudget.endDate === plusDays(10));
+      ensure(value.data?.state?.bridgeBudget?.amount === 550000 && value.data.state.bridgeBudget.cashScope === 'shared' && value.data.state.bridgeBudget.regularReserve === 57000 && value.data.state.bridgeBudget.endDate === plusDays(10));
       ensure(value.data.state.spendingGoals?.[0]?.limit === 5000 && value.data.state.purchasePauses?.[0]?.amount === 50000 && value.data.state.purchasePauses[0].resolution === undefined);
       ensure(JSON.stringify(value.data.state.fundEntries) === JSON.stringify(state.fundEntries) && value.data.state.config.allocation.variableBudget === initial.data.state.config.allocation.variableBudget);
       return value;

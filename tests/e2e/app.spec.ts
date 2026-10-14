@@ -309,6 +309,7 @@ test('start immediately with a 550000 bridge budget, then save a shopping goal a
   await expect(page.locator('.sync-badge')).toContainText('동기화됨');
   await go(page, 'home');
   await page.getByRole('button', { name: '월급 전 예산으로 시작', exact: true }).click();
+  await page.getByRole('radio', { name: '아니요, 이 돈은 생활비 전용이에요' }).check();
   await page.getByLabel('지금 쓸 수 있는 돈 (원)').fill('550000');
   const startDate = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
   const endDate = new Date(Date.parse(startDate) + 10 * 86400000).toISOString().slice(0, 10);
@@ -427,6 +428,7 @@ test('missions are reachable from home and primary navigation, linked savings pr
 test('regular category plans, exact actual payments and group toggles preserve the temporary living budget', async ({ page }) => {
   await startAccount(page);
   await page.getByRole('button', { name: '월급 전 예산으로 시작', exact: true }).click();
+  await page.getByRole('radio', { name: '아니요, 이 돈은 생활비 전용이에요' }).check();
   await page.getByRole('button', { name: '이 금액으로 시작하기' }).click();
   await expect(page.locator('.sync-badge')).toContainText('동기화됨');
   await go(page, 'settings');
@@ -443,6 +445,7 @@ test('regular category plans, exact actual payments and group toggles preserve t
   await expect(page.locator('.budget-card .big-number')).toHaveText('550,000원');
   const regular = page.getByRole('region', { name: '정기지출 현황' });
   await expect(regular).toContainText('실제 사용 0원');
+  await page.locator('.regular-details > summary').click();
   await page.getByRole('button', { name: '＋ 정기지출 기록하기' }).click();
   await page.getByRole('dialog').getByRole('button', { name: '🚇 교통비', exact: true }).click();
   await page.getByRole('spinbutton', { name: '지출 금액' }).fill('284530');
@@ -482,4 +485,45 @@ test('regular category plans, exact actual payments and group toggles preserve t
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
   await page.screenshot({ path: 'test-results/regular-consumption.png', fullPage: true });
+});
+
+test('shared cash, quick regular payments and pinned budget saving reduce daily input without double counting', async ({ page }) => {
+  await startAccount(page); await go(page, 'settings');
+  const saveButton = page.getByRole('button', { name: '예산 · 목표 · 알림 시간 저장하기' });
+  await expect(saveButton).toBeInViewport();
+  await page.getByRole('button', { name: '정기지출 6개 불러오기' }).click();
+  await page.getByLabel('카테고리 1 예산', { exact: true }).fill('560000');
+  await page.getByRole('button', { name: '차액을 생활비에 맞추기' }).click();
+  await expect(page.getByLabel('카테고리 6 예산', { exact: true })).toHaveValue('68000');
+  await saveButton.click(); await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  await go(page, 'home');
+  await expect(page.locator('.home-breakdown')).not.toHaveAttribute('open');
+  await expect(page.locator('.regular-details')).not.toHaveAttribute('open');
+  await page.getByRole('button', { name: '월급 전 예산으로 시작', exact: true }).click();
+  await page.getByRole('radio', { name: '네, 정기지출도 여기서 내요' }).check();
+  await page.getByLabel('종료일까지 정기지출로 남겨둘 돈 (원)').fill('57000');
+  await page.getByRole('button', { name: '이 금액으로 시작하기' }).click();
+  await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  await expect(page.locator('.budget-card .big-number')).toHaveText('493,000원');
+  await page.locator('.regular-details > summary').click();
+  await page.getByRole('button', { name: '통신비 납부 기록', exact: true }).click();
+  await expect(page.getByRole('spinbutton', { name: '실제 납부한 금액' })).toHaveValue('57000');
+  await page.getByRole('spinbutton', { name: '실제 납부한 금액' }).fill('57123');
+  await page.getByRole('button', { name: '납부 기록 저장', exact: true }).dblclick();
+  await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  await expect(page.locator('.budget-card .big-number')).toHaveText('492,877원');
+  await page.getByRole('button', { name: '통신비 납부 기록', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('이미 1건');
+  await page.getByRole('button', { name: '닫기', exact: true }).click();
+  await page.reload();
+  await expect(page.locator('.budget-card .big-number')).toHaveText('492,877원');
+  const saved = await (await page.request.get('/api/state')).json();
+  expect(saved.state.expenses).toHaveLength(1); expect(saved.state.expenses[0].amount).toBe(57123);
+  expect(saved.state.bridgeBudget.regularReserve).toBe(57000);
+  await page.getByRole('button', { name: '현재 잔액으로 다시 설정' }).click();
+  await expect(page.getByLabel('지금 쓸 수 있는 돈 (원)')).toHaveValue('492877');
+  await expect(page.getByLabel('종료일까지 정기지출로 남겨둘 돈 (원)')).toHaveValue('0');
+  await page.getByRole('button', { name: '입력 닫기' }).click();
+  for (const width of [320, 390]) { await page.setViewportSize({ width, height: 844 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); }
+  await page.screenshot({ path: 'test-results/easier-home.png', fullPage: true });
 });

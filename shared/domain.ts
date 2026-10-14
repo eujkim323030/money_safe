@@ -1,3 +1,4 @@
+import { bridgeCash } from './spending-cash';
 import { isRegular, categoryBudget } from './regular-expenses';
 import { fundNames, initialFundBalance } from './savings';
 import { CATEGORY_ICONS, MAX_CATEGORIES } from './categories';
@@ -31,7 +32,7 @@ export function allocationTotal(config: Config): number {
 export const inCycle = (date: string, cycle: SalaryCycle) => date >= cycle.start && date <= cycle.end;
 export function activeBudget(state: AppState, now: Date | string = new Date()) {
   const bridge = state.bridgeBudget, today = kstDate(now);
-  if (bridge && today >= bridge.startDate && today <= bridge.endDate) return { start: bridge.startDate, end: bridge.endDate, key: `bridge:${bridge.id}`, label: '월급 전 예산', budget: bridge.amount, temporary: true };
+  if (bridge && today >= bridge.startDate && today <= bridge.endDate) return { start: bridge.startDate, end: bridge.endDate, key: `bridge:${bridge.id}`, label: '월급 전 예산', budget: bridgeCash(state)!.budget, temporary: true };
   return { ...salaryCycle(now, state.config.salary.cycleStartDay), budget: state.config.allocation.variableBudget, temporary: false };
 }
 export function budgetExpenses(state: AppState, cycle: SalaryCycle = activeBudget(state)) {
@@ -148,7 +149,7 @@ export function validateState(value: unknown): string[] {
     const today = kstDate();
     const validExcluded = (ids: unknown) => Array.isArray(ids) && ids.length <= 10_000 && ids.every(id => isText(id, 100) && idPattern.test(id)) && new Set(ids).size === ids.length;
     const bridge = state.bridgeBudget;
-    check(bridge === undefined || (isObject(bridge) && isText(bridge.id, 100) && idPattern.test(bridge.id) && isMoney(bridge.amount) && bridge.amount > 0 && isDate(bridge.startDate) && bridge.startDate <= today && isDate(bridge.endDate) && bridge.endDate >= bridge.startDate && Date.parse(bridge.endDate) - Date.parse(bridge.startDate) < 31 * DAY && validExcluded(bridge.excludedExpenseIds)), '월급 전 예산의 금액·기간을 확인해 주세요.');
+    check(bridge === undefined || (isObject(bridge) && isText(bridge.id, 100) && idPattern.test(bridge.id) && isMoney(bridge.amount) && bridge.amount > 0 && isDate(bridge.startDate) && bridge.startDate <= today && isDate(bridge.endDate) && bridge.endDate >= bridge.startDate && Date.parse(bridge.endDate) - Date.parse(bridge.startDate) < 31 * DAY && validExcluded(bridge.excludedExpenseIds) && (bridge.cashScope === undefined || ['living', 'shared'].includes(bridge.cashScope)) && (bridge.cashScope === 'shared' ? isMoney(bridge.regularReserve) && bridge.regularReserve! <= bridge.amount : bridge.regularReserve === undefined || bridge.regularReserve === 0)), '월급 전 예산의 금액·기간을 확인해 주세요.');
     check(state.expenses.every(e => isMoney(e.amount) && e.amount > 0 && isDate(e.date) && e.date <= today && categoryIds.includes(e.category) && isText(e.note) && isText(e.emotion, 40) && typeof e.createdAt === 'string' && Number.isFinite(Date.parse(e.createdAt))), '지출 금액·날짜·카테고리를 확인해 주세요. 미래 지출은 등록할 수 없습니다.');
     check(state.repayments.every(r => ['boss', 'other'].includes(r.loan) && isDate(r.date) && r.date <= today && isMoney(r.total) && r.total > 0 && isText(r.note) && ((r.loan === 'other' && r.principal === null && r.interest === null) || (isMoney(r.principal) && isMoney(r.interest) && r.total === r.principal + r.interest))), '상환 기록은 원금·이자 합계가 납입액과 같아야 합니다. 미확인 별도 대출은 총액만 기록합니다.');
     check(loanBalance(state) >= 0, '상환 원금 합계가 기록 기준 잔액을 초과합니다.');
