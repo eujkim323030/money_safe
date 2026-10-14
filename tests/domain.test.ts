@@ -2,7 +2,39 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { allocationTotal, createInitialState, cycleComparison, fundBalance, kstDate, loanBalance, missionDefinitions, salaryCycle, simulateLoan, validateState, variableSpent } from '../shared/domain';
 import type { Expense } from '../shared/types';
+import { categoryArt, MAX_CATEGORIES } from '../shared/categories';
 const expense = (id: string, amount: number, date: string): Expense => ({ id, amount, date, category: 'food', note: '', emotion: '', createdAt: '2026-01-01T00:00:00Z' });
+
+test('custom categories retain existing expense identity and validate dynamic references and icons', () => {
+  const state = createInitialState();
+  state.expenses = [expense('old', 1000, kstDate())];
+  state.config.categories[0].name = '집밥·외식';
+  state.config.categories.push({ id: 'custom_transport', name: '교통비', budget: 0, icon: 'transport' });
+  state.expenses.push({ ...expense('new', 1500, kstDate()), category: 'custom_transport' });
+  assert.deepEqual(validateState(state), []);
+  assert.equal(state.expenses[0].category, 'food');
+  assert.equal(categoryArt(state.config.categories[0]).symbol, '🍜');
+  assert.equal(categoryArt(state.config.categories[6]).symbol, '🚇');
+  state.config.categories.pop();
+  assert.ok(validateState(state).some(message => message.includes('지출 금액')));
+});
+
+test('category limits, unique IDs, nonblank names, icon allowlist and balanced budgets are enforced', () => {
+  for (const invalid of [
+    { id: 'food', name: '중복', budget: 0 },
+    { id: 'new', name: '  ', budget: 0 },
+    { id: 'new', name: '새 항목', budget: 0, icon: 'unknown' },
+    { id: 'new', name: '새 항목', budget: 1 },
+  ]) {
+    const state = createInitialState(); state.config.categories.push(invalid);
+    assert.ok(validateState(state).length > 0);
+  }
+  const state = createInitialState();
+  while (state.config.categories.length < MAX_CATEGORIES) state.config.categories.push({ id: `custom_${state.config.categories.length}`, name: '항목', budget: 0 });
+  assert.deepEqual(validateState(state), []);
+  state.config.categories.push({ id: 'overflow', name: '초과', budget: 0 });
+  assert.ok(validateState(state).length > 0);
+});
 
 test('starter has exactly balanced 3,650,000 allocation, six-category 1,368,000 budget, no fabricated records', () => {
   const state = createInitialState();

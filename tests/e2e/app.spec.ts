@@ -161,6 +161,7 @@ test('push permission is requested only after a click and a denial is explained 
     Object.defineProperty(Notification, 'requestPermission', { value: () => { (window as any).__permissionRequests++; return Promise.resolve('denied'); }, configurable: true });
   });
   await startAccount(page); await go(page, 'settings');
+  await page.getByText('🔔 알림 · 아이폰 설치', { exact: true }).click();
   await expect(page.locator('.push-status')).toContainText('설정됨');
   expect(await page.evaluate(() => (window as any).__permissionRequests)).toBe(0);
   await page.getByRole('button', { name: '이 기기 알림 켜기' }).click();
@@ -208,4 +209,54 @@ test('logging out with an in-flight offline queue cannot recreate its cache or w
   const other = await (await page.request.get('/api/state')).json();
   expect(other.state.expenses).toEqual([]);
   expect(await page.evaluate(id => localStorage.getItem(`salary-guardians:state:${id}`), firstUser.id)).toBeNull();
+});
+
+test('purpose menus and custom category editing preserve old records and sync new category expenses', async ({ page }) => {
+  await startAccount(page);
+  const menu = page.getByRole('navigation', { name: '주 메뉴', exact: true });
+  await expect(menu.getByRole('button')).toHaveCount(4);
+  await menu.getByRole('button', { name: '기록', exact: true }).click();
+  await addExpense(page, 1200, '기존 기록');
+  await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  await page.getByRole('button', { name: '카테고리 관리' }).click();
+  await expect(page.getByLabel('카테고리 1 이름', { exact: true })).toBeVisible();
+  await page.getByLabel('카테고리 1 이름', { exact: true }).fill('집밥·외식');
+  await page.getByRole('button', { name: /카테고리 추가/ }).click();
+  await page.getByRole('button', { name: '교통', exact: true }).click();
+  await page.getByLabel('카테고리 7 이름', { exact: true }).fill('교통비');
+  await page.getByLabel('카테고리 7 예산', { exact: true }).fill('10000');
+  await page.getByRole('button', { name: '예산 · 목표 · 알림 시간 저장하기' }).click();
+  await expect(page.getByRole('alert')).toContainText('카테고리 합계');
+  const firstBudget = page.getByLabel('카테고리 1 예산', { exact: true });
+  await firstBudget.fill(String(Number(await firstBudget.inputValue()) - 10000));
+  await page.getByRole('button', { name: '예산 · 목표 · 알림 시간 저장하기' }).click();
+  await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  await page.reload();
+  await expect(page.getByLabel('카테고리 7 이름', { exact: true })).toHaveValue('교통비');
+  await expect(page.getByRole('button', { name: '교통비 아이콘 선택' })).toHaveText('🚇');
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.screenshot({ path: 'test-results/category-editor.png', fullPage: true });
+  await menu.getByRole('button', { name: '기록', exact: true }).click();
+  await expect(page.locator('.record-row')).toContainText('집밥·외식');
+  await page.getByRole('button', { name: '＋ 지출 기록', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '🚇 교통비', exact: true }).click();
+  await page.getByRole('spinbutton', { name: '지출 금액' }).fill('1500');
+  await page.getByRole('button', { name: '기록 완료하기 ♡' }).click();
+  await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  const saved = await (await page.request.get('/api/state')).json();
+  expect(saved.state.expenses[0].category).toBe('food');
+  expect(saved.state.expenses[1].category).toBe(saved.state.config.categories[6].id);
+  expect(saved.state.config.categories[6].icon).toBe('transport');
+  await page.getByRole('navigation', { name: '기록 메뉴' }).getByRole('button', { name: '소비 통계' }).click();
+  await expect(page.locator('.category-stats')).toContainText('교통비');
+  await menu.getByRole('button', { name: '목표', exact: true }).click();
+  const goals = page.getByRole('navigation', { name: '목표 메뉴' });
+  await goals.getByRole('button', { name: '대출 상환' }).click();
+  await expect(page).toHaveURL(/#loan$/);
+  await expect(menu.getByRole('button', { name: '목표', exact: true })).toHaveAttribute('aria-current', 'page');
+  await goals.getByRole('button', { name: '실천 미션' }).click();
+  await expect(page).toHaveURL(/#missions$/);
 });

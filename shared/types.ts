@@ -1,4 +1,5 @@
-export type CategoryId = 'food' | 'cafe' | 'date' | 'shopping' | 'running' | 'other';
+export type CategoryId = string;
+export interface Category { id: CategoryId; name: string; budget: number; icon?: string }
 export interface Config {
   app: { name: string; locale: string; timezone: string; currency: string; theme: string };
   salary: { monthlyAmount: number; payday: number; cycleStartDay: number };
@@ -7,7 +8,7 @@ export interface Config {
     loanPayments: { otherLoan: number; bossLoanRegular: number; bossLoanExtra: number };
     fixedExpenses: number; emergencyContribution: number; bigPurchaseContribution: number; variableBudget: number;
   };
-  categories: { id: CategoryId; name: string; budget: number }[];
+  categories: Category[];
   bossLoan: { initialBalance: number; currentBalance: number; annualInterestRate: number; regularPayment: number; extraPrincipalGoal: number; prepaymentFeeRate: number; repaymentType: string };
   goals: { emergencyFund: { balance: number; target: number; monthlyContribution: number }; bigPurchaseFund: { balance: number | null; monthlyContribution: number } };
   push: PushPreferences;

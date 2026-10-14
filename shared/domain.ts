@@ -1,3 +1,4 @@
+import { CATEGORY_ICONS, MAX_CATEGORIES } from './categories';
 import starter from './starter-config.json';
 import type { AppState, Config, FundEntry } from './types';
 
@@ -99,8 +100,10 @@ export function validateState(value: unknown): string[] {
     check(amounts.every(isMoney), '배분 금액은 0 이상의 정수 원화입니다.');
     check(Object.keys(a.savings).length === 3 && Object.keys(a.loanPayments).length === 3, '지원하지 않는 배분 항목입니다.');
     check(allocationTotal(c) === c.salary.monthlyAmount, '월급 배분 합계가 월급과 같아야 합니다.');
-    const categoryIds = ['food', 'cafe', 'date', 'shopping', 'running', 'other'];
-    check(Array.isArray(c.categories) && c.categories.length === 6 && new Set(c.categories.map(x => x.id)).size === 6 && c.categories.every(x => categoryIds.includes(x.id) && isMoney(x.budget) && isText(x.name, 30)), '6개 카테고리 예산을 확인해 주세요.');
+    const validCategories = Array.isArray(c.categories) && c.categories.length >= 1 && c.categories.length <= MAX_CATEGORIES && c.categories.every(x => isObject(x) && isText(x.id, 100) && idPattern.test(x.id) && isMoney(x.budget) && isText(x.name, 30) && x.name.trim().length > 0 && (x.icon === undefined || CATEGORY_ICONS.some(icon => icon.id === x.icon))) && new Set(c.categories.map(x => x.id)).size === c.categories.length;
+    check(validCategories, `카테고리는 1~${MAX_CATEGORIES}개로, 이름·아이콘·예산을 확인해 주세요.`);
+    if (!validCategories) return errors;
+    const categoryIds = c.categories.map(x => x.id);
     check(c.categories.reduce((s, x) => s + x.budget, 0) === a.variableBudget, '카테고리 합계가 생활비 예산과 같아야 합니다.');
     const b = c.bossLoan;
     check([b.initialBalance, b.currentBalance, b.regularPayment, b.extraPrincipalGoal].every(isMoney) && b.initialBalance > 0, '대출 금액을 확인해 주세요.');
