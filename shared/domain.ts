@@ -1,3 +1,4 @@
+import { fundNames, initialFundBalance } from './savings';
 import { CATEGORY_ICONS, MAX_CATEGORIES } from './categories';
 import starter from './starter-config.json';
 import type { AppState, Config, FundEntry } from './types';
@@ -53,7 +54,7 @@ export function loanBalance(state: AppState): number {
   return state.config.bossLoan.currentBalance - state.repayments.filter(r => r.loan === 'boss').reduce((s, r) => s + (r.principal ?? 0), 0);
 }
 export function fundBalance(state: AppState, fund: FundEntry['fund']): number | null {
-  let balance: number | null = fund === 'emergency' ? state.config.goals.emergencyFund.balance : state.config.goals.bigPurchaseFund.balance;
+  let balance: number | null = initialFundBalance(state, fund);
   for (const e of state.fundEntries.filter(e => e.fund === fund).map((e, i) => ({ ...e, i })).sort((a, b) => a.date.localeCompare(b.date) || a.i - b.i)) {
     if (e.kind === 'adjust') balance = e.amount;
     else if (balance !== null) balance += e.kind === 'deposit' ? e.amount : -e.amount;
@@ -146,9 +147,9 @@ export function validateState(value: unknown): string[] {
     check(state.expenses.every(e => isMoney(e.amount) && e.amount > 0 && isDate(e.date) && e.date <= today && categoryIds.includes(e.category) && isText(e.note) && isText(e.emotion, 40) && typeof e.createdAt === 'string' && Number.isFinite(Date.parse(e.createdAt))), '지출 금액·날짜·카테고리를 확인해 주세요. 미래 지출은 등록할 수 없습니다.');
     check(state.repayments.every(r => ['boss', 'other'].includes(r.loan) && isDate(r.date) && r.date <= today && isMoney(r.total) && r.total > 0 && isText(r.note) && ((r.loan === 'other' && r.principal === null && r.interest === null) || (isMoney(r.principal) && isMoney(r.interest) && r.total === r.principal + r.interest))), '상환 기록은 원금·이자 합계가 납입액과 같아야 합니다. 미확인 별도 대출은 총액만 기록합니다.');
     check(loanBalance(state) >= 0, '상환 원금 합계가 기록 기준 잔액을 초과합니다.');
-    check(state.fundEntries.every(e => ['emergency', 'bigPurchase'].includes(e.fund) && ['deposit', 'withdraw', 'adjust'].includes(e.kind) && isMoney(e.amount) && (e.kind === 'adjust' || e.amount > 0) && isDate(e.date) && e.date <= today && isText(e.note)), '저축 기록 금액·날짜를 확인해 주세요.');
-    for (const fund of ['emergency', 'bigPurchase'] as const) {
-      let balance: number | null = fund === 'emergency' ? c.goals.emergencyFund.balance : c.goals.bigPurchaseFund.balance;
+    check(state.fundEntries.every(e => Object.hasOwn(fundNames, e.fund) && ['deposit', 'withdraw', 'adjust'].includes(e.kind) && isMoney(e.amount) && (e.kind === 'adjust' || e.amount > 0) && isDate(e.date) && e.date <= today && isText(e.note)), '저축 기록 금액·날짜를 확인해 주세요.');
+    for (const fund of Object.keys(fundNames) as FundEntry['fund'][]) {
+      let balance: number | null = initialFundBalance(state, fund);
       for (const e of state.fundEntries.filter(e => e.fund === fund).map((e, i) => ({ ...e, i })).sort((x, y) => x.date.localeCompare(y.date) || x.i - y.i)) {
         if (e.kind === 'adjust') balance = e.amount;
         else if (e.kind === 'withdraw' && balance === null) check(false, '미확인 잔액은 잔액 조정 후 인출을 기록해 주세요.');

@@ -155,6 +155,7 @@ export async function runPublicSmoke(options = {}) {
     state.bridgeBudget = { id: randomUUID(), amount: 550000, startDate: missionDate, endDate: plusDays(10), excludedExpenseIds: [] };
     state.spendingGoals = [{ id: randomUUID(), categoryId, categoryName: '교통비', startDate: missionDate, endDate: plusDays(2), limit: 5000, createdAt: missionNow.toISOString(), excludedExpenseIds: [] }];
     state.purchasePauses = [{ id: randomUUID(), name: '자동 검증용 구매 보류', amount: 50000, createdAt: missionNow.toISOString() }];
+    state.fundEntries = [{ id: randomUUID(), fund: 'youth', kind: 'adjust', amount: 2000000, date: missionDate, note: '자동 검증용 잔액' }, { id: randomUUID(), fund: 'nonghyup', kind: 'adjust', amount: 2700000, date: missionDate, note: '자동 검증용 잔액' }, { id: randomUUID(), fund: 'travel', kind: 'adjust', amount: 0, date: missionDate, note: '자동 검증용 잔액' }, { id: randomUUID(), fund: 'youth', kind: 'deposit', amount: 500000, date: missionDate, note: '자동 검증용 적립' }];
     const saved = await check('state_cas_write', async () => {
       const value = await get('/api/state', { userId: user.id, state, revision: initial.data.revision }, 'PUT');
       ensure(value.data?.revision === initial.data.revision + 1 && value.data?.state?.expenses?.some(expense => expense.id === expenseId && expense.amount === 1000)); return value;
@@ -169,7 +170,7 @@ export async function runPublicSmoke(options = {}) {
       const value = await get('/api/state');
       ensure(value.data?.state?.bridgeBudget?.amount === 550000 && value.data.state.bridgeBudget.endDate === plusDays(10));
       ensure(value.data.state.spendingGoals?.[0]?.limit === 5000 && value.data.state.purchasePauses?.[0]?.amount === 50000 && value.data.state.purchasePauses[0].resolution === undefined);
-      ensure(value.data.state.fundEntries.length === 0 && value.data.state.config.allocation.variableBudget === initial.data.state.config.allocation.variableBudget);
+      ensure(JSON.stringify(value.data.state.fundEntries) === JSON.stringify(state.fundEntries) && value.data.state.config.allocation.variableBudget === initial.data.state.config.allocation.variableBudget);
       return value;
     });
     await check('persisted_state', async () => { const value = await get('/api/state'); ensure(value.data?.revision === saved.data.revision && JSON.stringify(value.data.state) === JSON.stringify(saved.data.state)); return value; });
@@ -200,7 +201,7 @@ export async function runPublicSmoke(options = {}) {
     else if (report.success) log('공개 앱 검증 통과. 임시 계정은 삭제했습니다. 실제 아이폰 알림 수신은 별도 확인이 필요합니다.');
     if (process.env.GITHUB_ACTIONS === 'true') {
       const failedStep = report.assertions.find(assertion => assertion.status === 'failed')?.name ?? 'cleanup';
-      const summary = report.error ? `${failedStep}: ${report.error.kind}${report.error.httpStatus !== undefined ? ` HTTP ${report.error.httpStatus}` : ''}: ${report.error.message}` : '공개 앱 기능 검사 통과. 카테고리·임시 예산·절약 미션 저장 및 임시 계정 삭제 완료. 실제 아이폰 푸시 수신은 별도 확인이 필요합니다.';
+      const summary = report.error ? `${failedStep}: ${report.error.kind}${report.error.httpStatus !== undefined ? ` HTTP ${report.error.httpStatus}` : ''}: ${report.error.message}` : '공개 앱 기능 검사 통과. 카테고리·임시 예산·절약 미션·저축 계좌 저장 및 임시 계정 삭제 완료. 실제 아이폰 푸시 수신은 별도 확인이 필요합니다.';
       const escaped = summary.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
       log(`::${report.success ? 'notice' : 'error'} title=Deployed app verification::${escaped}`);
     }

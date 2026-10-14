@@ -215,7 +215,7 @@ test('logging out with an in-flight offline queue cannot recreate its cache or w
 test('purpose menus and custom category editing preserve old records and sync new category expenses', async ({ page }) => {
   await startAccount(page);
   const menu = page.getByRole('navigation', { name: '주 메뉴', exact: true });
-  await expect(menu.getByRole('button')).toHaveCount(4);
+  await expect(menu.getByRole('button')).toHaveCount(5);
   await menu.getByRole('button', { name: '기록', exact: true }).click();
   await addExpense(page, 1200, '기존 기록');
   await expect(page.locator('.sync-badge')).toContainText('동기화됨');
@@ -258,7 +258,7 @@ test('purpose menus and custom category editing preserve old records and sync ne
   await goals.getByRole('button', { name: '대출 상환' }).click();
   await expect(page).toHaveURL(/#loan$/);
   await expect(menu.getByRole('button', { name: '목표', exact: true })).toHaveAttribute('aria-current', 'page');
-  await goals.getByRole('button', { name: '절약 미션' }).click();
+  await menu.getByRole('button', { name: '미션', exact: true }).click();
   await expect(page).toHaveURL(/#missions$/);
 });
 
@@ -369,4 +369,50 @@ test('closed savings goals need explicit daily review and a 24-hour pause can th
   expect(saved.state.spendingReviews).toHaveLength(1);
   expect(saved.state.purchasePauses[0].resolution).toBe('skipped');
   expect(saved.state.expenses).toEqual([]); expect(saved.state.fundEntries).toEqual([]);
+});
+
+test('missions are reachable from home and primary navigation, linked savings preserve opening balances and real deposits', async ({ page }) => {
+  await startAccount(page);
+  const menu = page.getByRole('navigation', { name: '주 메뉴', exact: true });
+  await expect(page.getByRole('region', { name: '오늘의 절약 미션' })).toBeInViewport();
+  await page.getByRole('button', { name: '절약 미션 시작하기 →' }).click();
+  await expect(menu.getByRole('button', { name: '미션', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('heading', { name: '덜 사고, 더 지키기' })).toBeVisible();
+  await page.goto('/#savings?youth=2000000&nonghyup=2700000');
+  await expect(page.getByLabel('청년미래저축 현재 잔액')).toHaveValue('2000000');
+  await expect(page.getByLabel('농협 적금 현재 잔액')).toHaveValue('2700000');
+  const before = await (await page.request.get('/api/state')).json();
+  expect(before.state.fundEntries).toEqual([]);
+  await page.getByRole('button', { name: '저축 계좌 잔액 저장' }).dblclick();
+  await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  await expect(page).toHaveURL(/#savings$/);
+  const youth = page.locator('[data-fund=youth]'), nh = page.locator('[data-fund=nonghyup]');
+  await expect(youth).toContainText('2,000,000원'); await expect(nh).toContainText('2,700,000원');
+  await expect(youth).toContainText('월 적립 계획 500,000원');
+  await expect(youth).toContainText('적립 0건 · 0원');
+  await expect(page.locator('[data-fund=travel]')).toContainText('현재 잔액 미확인');
+  await youth.getByRole('button').click();
+  await page.getByRole('spinbutton', { name: '실제로 적립한 금액' }).fill('500000');
+  await page.getByRole('button', { name: '창고 기록 저장하기' }).click();
+  await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  await page.reload();
+  await expect(youth).toContainText('2,500,000원'); await expect(youth).toContainText('적립 1건 · 500,000원');
+  const saved = await (await page.request.get('/api/state')).json();
+  expect(saved.state.fundEntries).toHaveLength(3); expect(saved.state.expenses).toEqual([]);
+  expect(saved.state.config).toEqual(before.state.config);
+  // Reopening the same prefill must never overwrite an already initialized account.
+  await page.goto('/#savings?youth=100&nonghyup=100');
+  await expect(page.getByLabel('청년미래저축 현재 잔액')).toHaveCount(0);
+  await page.getByLabel('여행 저축 현재 잔액').fill('0');
+  await page.getByRole('button', { name: '저축 계좌 잔액 저장' }).click();
+  await expect(page.locator('.sync-badge')).toContainText('동기화됨');
+  await expect(page.locator('.savings-opening')).toHaveCount(0);
+  await expect(youth).toContainText('2,500,000원'); await expect(nh).toContainText('2,700,000원');
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.screenshot({ path: 'test-results/linked-savings.png', fullPage: true });
+  await menu.getByRole('button', { name: '홈', exact: true }).click();
+  await expect(page.locator('.budget-card .big-number')).toHaveText('1,368,000원');
 });

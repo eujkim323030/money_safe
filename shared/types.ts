@@ -22,7 +22,7 @@ export interface PushPreferences {
 }
 export interface Expense { id: string; amount: number; date: string; category: CategoryId; note: string; emotion: string; createdAt: string }
 export interface Repayment { id: string; loan: 'boss' | 'other'; date: string; total: number; principal: number | null; interest: number | null; note: string }
-export interface FundEntry { id: string; fund: 'emergency' | 'bigPurchase'; kind: 'deposit' | 'withdraw' | 'adjust'; amount: number; date: string; note: string }
+export interface FundEntry { id: string; fund: 'emergency' | 'bigPurchase' | 'youth' | 'nonghyup' | 'travel'; kind: 'deposit' | 'withdraw' | 'adjust'; amount: number; date: string; note: string }
 export interface MissionCompletion { id: string; key: string; period: string; completedAt: string }
 export interface SpendingGoal { id: string; categoryId: string | null; categoryName: string; startDate: string; endDate: string; limit: number; createdAt: string; excludedExpenseIds?: string[] }
 export interface PurchasePause { id: string; name: string; amount: number; createdAt: string; resolution?: 'skipped' | 'bought'; resolvedAt?: string }
