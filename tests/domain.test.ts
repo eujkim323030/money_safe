@@ -2,8 +2,25 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { allocationTotal, createInitialState, cycleComparison, fundBalance, kstDate, loanBalance, missionDefinitions, salaryCycle, simulateLoan, validateState, variableSpent } from '../shared/domain';
 import type { Expense } from '../shared/types';
-import { categoryArt, MAX_CATEGORIES } from '../shared/categories';
+import { categoryArt, MAX_CATEGORIES, mergeCategory, reassignCategoryExpenses } from '../shared/categories';
 const expense = (id: string, amount: number, date: string): Expense => ({ id, amount, date, category: 'food', note: '', emotion: '', createdAt: '2026-01-01T00:00:00Z' });
+
+test('category deletion transfers budgets and all historical records through chained destinations', () => {
+  const state = createInitialState();
+  state.expenses = [expense('old', 1500, '2026-01-01'), { ...expense('new', 2000, kstDate()), category: 'other' }];
+  const original = structuredClone(state);
+  state.config.categories = mergeCategory(state.config.categories, 'food', 'other');
+  state.config.categories = mergeCategory(state.config.categories, 'other', 'cafe');
+  state.expenses = reassignCategoryExpenses(state.expenses, [{ from: 'food', to: 'other' }, { from: 'other', to: 'cafe' }]);
+  assert.deepEqual(validateState(state), []);
+  assert.equal(state.config.categories.length, 4);
+  assert.equal(state.config.categories.reduce((sum, item) => sum + item.budget, 0), original.config.allocation.variableBudget);
+  assert.deepEqual(state.expenses, original.expenses.map(item => ({ ...item, category: 'cafe' })));
+  assert.equal(original.config.categories.length, 6);
+  assert.throws(() => mergeCategory(state.config.categories, 'cafe', 'cafe'));
+  assert.throws(() => mergeCategory(state.config.categories, 'cafe', 'missing'));
+  assert.throws(() => mergeCategory([state.config.categories[0]], 'cafe', 'other'));
+});
 
 test('custom categories retain existing expense identity and validate dynamic references and icons', () => {
   const state = createInitialState();

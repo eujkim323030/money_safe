@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { CATEGORY_ICONS, MAX_CATEGORIES, categoryArt } from '../shared/categories';
-import type { Category } from '../shared/types';
+import type { Category, Expense } from '../shared/types';
 
-export default function CategoryEditor({ categories, onChange }: { categories: Category[]; onChange: (categories: Category[]) => void }) {
+export default function CategoryEditor({ categories, expenses, onChange, onDelete }: { categories: Category[]; expenses: Expense[]; onChange: (categories: Category[]) => void; onDelete: (from: string, to: string) => boolean }) {
   const [editingIcon, setEditingIcon] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [destination, setDestination] = useState('');
   function edit(id: string, patch: Partial<Category>) {
     onChange(categories.map(item => item.id === id ? { ...item, ...patch } : item));
   }
@@ -23,6 +25,13 @@ export default function CategoryEditor({ categories, onChange }: { categories: C
           <label className="field">예산 (원)<input aria-label={`카테고리 ${index + 1} 예산`} type="number" inputMode="numeric" required min={0} step={1} value={category.budget} onChange={event => edit(category.id, { budget: Number(event.target.value) })} /></label>
         </div>
         {editingIcon === category.id && <fieldset className="category-art-picker"><legend>{category.name} 아이콘</legend>{CATEGORY_ICONS.map(icon => <button type="button" key={icon.id} aria-label={icon.name} aria-pressed={art.id === icon.id} onClick={() => { edit(category.id, { icon: icon.id }); setEditingIcon(null); }}><span className="category-art" style={{ backgroundColor: icon.color }}>{icon.symbol}</span><small>{icon.name}</small></button>)}</fieldset>}
+        <button type="button" className="text-button danger category-delete-button" disabled={categories.length < 2} aria-label={`${category.name} 카테고리 삭제`} onClick={() => { setDeleting(category.id); setDestination(''); }}>{categories.length < 2 ? '마지막 카테고리는 유지해요' : '카테고리 삭제'}</button>
+        {deleting === category.id && <div className="category-delete-panel" role="group" aria-label={`${category.name} 삭제 확인`}>
+          <p>‘{category.name}’의 지출 {expenses.filter(expense => expense.category === category.id).length}건과 예산 {category.budget.toLocaleString('ko-KR')}원을 아래 카테고리로 옮겨요. 기록과 전체 예산은 유지돼요.</p>
+          <label className="field">옮길 카테고리<select value={destination} onChange={event => setDestination(event.target.value)}><option value="">선택해 주세요</option>{categories.filter(item => item.id !== category.id).map(item => <option key={item.id} value={item.id}>{categoryArt(item).symbol} {item.name}</option>)}</select></label>
+          <div className="button-row"><button type="button" className="button" onClick={() => setDeleting(null)}>취소</button><button type="button" className="button danger-button" disabled={!destination} onClick={() => { if (onDelete(category.id, destination)) { setDeleting(null); setEditingIcon(null); } }}>옮기고 삭제</button></div>
+          <p className="fine-print">아래 ‘예산 · 목표 · 알림 시간 저장하기’를 눌러야 반영돼요.</p>
+        </div>}
       </div>;
     })}
     <button type="button" className="button wide" disabled={categories.length >= MAX_CATEGORIES} onClick={add}>＋ 카테고리 추가 ({categories.length}/{MAX_CATEGORIES})</button>
